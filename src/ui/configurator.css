@@ -51,13 +51,21 @@ body.configurator-active #hud { display: none; }
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   z-index: 20;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease, visibility 0.7s;
+}
+/* écran G : le configurateur glisse hors champ, le décor respire */
+body.screen-result #cfg-panel {
+  transform: translateX(calc(-100% - 48px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
+/* retour Romain : plus de capitales — casse normale partout */
 .cfg-overline {
   font-size: 11px;
   line-height: 16px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   color: var(--text-tertiary);
 }
 
@@ -129,14 +137,18 @@ body.configurator-active #hud { display: none; }
 .cfg-card.is-selected { border-color: var(--border-strong); }
 .cfg-card:focus-visible { outline: 2px solid var(--border-strong); outline-offset: 2px; }
 
+/* zones de hauteur FIXE (titre 2 lignes, sous-titre 2 lignes) : les textes
+   des trois fermes s'étalent sur 1 ou 2 lignes selon leur longueur — sans
+   cela les intérieurs dérivent et les cartes semblent de tailles inégales */
 .cfg-card-title {
   font-family: var(--font-display);
   font-size: 20px;
   line-height: 24px;
+  min-height: 48px;
   margin: 0 0 12px;
   font-weight: 400;
 }
-.cfg-card-subtitle { font-size: 12px; line-height: 16px; color: var(--text-tertiary); margin: 0; }
+.cfg-card-subtitle { font-size: 12px; line-height: 16px; min-height: 32px; color: var(--text-tertiary); margin: 0; }
 .cfg-card-score { font-size: 22px; line-height: 28px; }
 .cfg-card-score small { font-size: 12px; line-height: 16px; color: var(--text-tertiary); }
 .cfg-card-gauge { display: flex; gap: 3px; margin-top: 5px; }
@@ -203,6 +215,7 @@ body.configurator-active #hud { display: none; }
   color: var(--text-primary);
   font-family: var(--font-base);
   z-index: 20;
+  transition: opacity 0.5s ease, visibility 0.5s;
 }
 #impact-panel.is-collapsed { width: min(393px, calc(100vw - 48px)); }
 
@@ -223,7 +236,16 @@ body.configurator-active #hud { display: none; }
 .impact-header:focus-visible { outline: 2px solid var(--border-strong); outline-offset: 2px; }
 
 .impact-header-left { display: flex; align-items: center; gap: 24px; }
+/* le texte du composant dépliable se lit comme cliquable : plus gros,
+   plus blanc — la flèche aussi */
+.impact-header .cfg-overline {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-primary);
+}
 .impact-chevron { transition: transform 0.2s ease; }
+.impact-chevron svg { width: 15px; height: 9px; }
+.impact-chevron path { stroke: #fff; stroke-opacity: 1; }
 #impact-panel.is-collapsed .impact-chevron { transform: rotate(180deg); }
 
 .impact-mini-score {
@@ -269,15 +291,18 @@ body.configurator-active #hud { display: none; }
 
 /* ---- odomètre (chiffres qui roulent, façon réveil) ------------------ */
 .odo { display: inline-flex; overflow: hidden; }
-.odo-digit { display: inline-block; height: 1em; overflow: hidden; }
+/* fenêtre de 1.3em : les chiffres Playfair (chasse haute du 5, jambages
+   du 3/4/9) débordent d'une fenêtre de 1em — ils y tiennent entiers ;
+   le vertical-align recale la ligne de base sur celle du « /100 » */
+.odo-digit { display: inline-block; height: 1.3em; overflow: hidden; vertical-align: -0.24em; }
 .odo-reel {
   display: block;
   transition: transform 1.6s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
-/* crans de 1.3em : les glyphes Playfair débordent de leur em-box, l'écart
-   repousse les chiffres voisins hors de la fenêtre de 1em */
-.odo-reel i { display: block; height: 1.3em; line-height: 1.3em; font-style: normal; }
+/* crans de 1.7em : l'écart repousse les chiffres voisins hors de la
+   fenêtre de 1.3em (offset du JS : -d × 1.7 − 0.2) */
+.odo-reel i { display: block; height: 1.7em; line-height: 1.7em; font-style: normal; }
 
 .impact-scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-tertiary); margin-bottom: 40px; }
 
@@ -300,6 +325,126 @@ body.configurator-active #hud { display: none; }
 .impact-line.is-hot .impact-line-row,
 .impact-line.is-hot .impact-line-row .value { color: #fff; }
 
+/* ---- écran G (résultat) : barre haute, décor plein cadre ------------- */
+/* le pill impact replié rejoint le centre de la barre (maquette screen G) */
+body.screen-result #impact-panel {
+  right: auto;
+  bottom: auto;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+body.screen-result #impact-panel.is-collapsed { width: min(400px, calc(100vw - 48px)); }
+/* arrivée du pill dans la barre (rejouée au retour de H-1) */
+body.screen-result:not(.screen-cta) #impact-panel {
+  animation: g-drop 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes g-drop {
+  from { opacity: 0; translate: 0 -14px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+#gbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  z-index: 20;
+  pointer-events: none; /* seuls les boutons captent les clics */
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 -14px;
+  transition: opacity 0.5s ease, visibility 0.5s, translate 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+body.screen-result:not(.screen-cta) #gbar { opacity: 1; visibility: visible; translate: 0 0; }
+
+.gbar-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-2xl);
+  color: var(--text-primary);
+  font-family: var(--font-base);
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.gbar-btn:hover { border-color: var(--border-strong); }
+.gbar-btn:focus-visible { outline: 2px solid var(--border-strong); outline-offset: 2px; }
+.gbar-icon { width: 50px; height: 50px; padding: 0; }
+.gbar-conclude { min-width: 200px; padding: 20px 40px; white-space: nowrap; }
+
+/* en G le détail s'ouvre vers le BAS : chevron inversé par rapport à F */
+body.screen-result #impact-panel.is-collapsed .impact-chevron { transform: none; }
+body.screen-result #impact-panel:not(.is-collapsed) .impact-chevron { transform: rotate(180deg); }
+
+/* ---- écran H-1 : voile d'appel à l'action ---------------------------- */
+#cta-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 12px;
+  background: rgba(9, 12, 31, 0.6);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.8s ease, visibility 0.8s;
+}
+body.screen-cta #cta-veil { opacity: 1; visibility: visible; }
+/* sous le voile, barre et pill s'effacent (maquette H-1 : plein cadre) */
+body.screen-cta #gbar,
+body.screen-cta #impact-panel { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.cta-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(28px, 3.5vw, 44px);
+  line-height: 1.1;
+  text-align: center;
+  color: var(--text-primary);
+  max-width: 863px;
+  margin: 0;
+  translate: 0 14px;
+  transition: translate 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cta-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  translate: 0 14px;
+  transition: translate 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.08s;
+}
+body.screen-cta .cta-title,
+body.screen-cta .cta-actions { translate: 0 0; }
+
+.cta-btn {
+  min-width: 200px;
+  white-space: nowrap;
+  padding: 20px 40px;
+  border-radius: var(--radius-2xl);
+  font-family: var(--font-base);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-primary);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.cta-btn:hover { border-color: var(--border-strong); }
+.cta-btn:focus-visible { outline: 2px solid var(--border-strong); outline-offset: 2px; }
+
 /* ---- responsive ------------------------------------------------------ */
 @media (max-width: 900px) {
   #cfg-panel { top: 12px; left: 12px; bottom: 12px; width: calc(100vw - 24px); padding: 28px; }
@@ -308,4 +453,9 @@ body.configurator-active #hud { display: none; }
   .cfg-question { font-size: 24px; line-height: 32px; }
   .cfg-profiles { grid-template-columns: 1fr; }
   .cfg-profiles .cfg-card { min-height: 0; gap: 16px; }
+  /* écran G : le pill passe SOUS la barre pour ne pas chevaucher les boutons */
+  #gbar { padding: 8px; }
+  .gbar-conclude { width: auto; padding: 15px 18px; }
+  body.screen-result #impact-panel { top: 74px; }
+  body.screen-result #impact-panel.is-collapsed { width: min(400px, calc(100vw - 24px)); }
 }
