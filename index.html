@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>NEMO — océan configurable</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #05121c; overflow: hidden; }
+      body { font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: #eaf4f8; }
+
+      #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+      #overlay { position: fixed; inset: 0; pointer-events: none; }
+      /* Voile de lisibilité. La scène est un dégradé imprévisible : selon
+         l'heure et l'état de l'eau, le coin haut-gauche va du blanc brûlé au
+         bleu nuit. Un voile fixe côté texte garantit le contraste sans
+         assombrir l'image là où elle porte le sujet. */
+      #overlay::before {
+        content: ''; position: absolute; inset: 0;
+        background:
+          linear-gradient(100deg, rgba(3,16,26,.62) 0%, rgba(3,16,26,.34) 32%, rgba(3,16,26,0) 62%),
+          linear-gradient(to bottom, rgba(3,16,26,.28) 0%, rgba(3,16,26,0) 26%);
+      }
+      .chapter {
+        position: absolute; left: 0; right: 0;
+        padding: 0 max(24px, env(safe-area-inset-left)) 0 max(24px, env(safe-area-inset-left));
+        max-width: 620px; opacity: 0; transform: translateY(16px);
+        transition: opacity .6s ease, transform .6s ease;
+      }
+      .chapter.is-visible { opacity: 1; transform: none; }
+      .chapter h1 { font-size: clamp(2rem, 6vw, 4rem); line-height: 1.05; margin: 0 0 .5em; font-weight: 600; letter-spacing: -0.02em; color: #fff; text-shadow: 0 2px 30px rgba(0,18,32,.75); }
+      .chapter h2 { font-size: clamp(1.25rem, 3.5vw, 2rem); margin: 0 0 .5em; font-weight: 600; color: #fff; text-shadow: 0 2px 24px rgba(0,18,32,.7); }
+      .chapter p { margin: 0; color: #dcebf2; text-shadow: 0 1px 16px rgba(0,20,35,.85); }
+      #c-hero { top: 22vh; }
+      #c-dive { top: 50%; transform: translateY(-50%) translateY(16px); }
+      #c-dive.is-visible { transform: translateY(-50%); }
+      #c-floor { bottom: 14vh; }
+
+      #hud {
+        position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom));
+        transform: translateX(-50%); display: flex; gap: 18px; align-items: center;
+        padding: 10px 16px; border-radius: 999px;
+        background: rgba(6, 24, 36, .55); backdrop-filter: blur(12px);
+        border: 1px solid rgba(160, 210, 230, .18); font-variant-numeric: tabular-nums;
+        font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #9fc4d4;
+      }
+      #hud b { color: #eaf4f8; font-weight: 600; }
+      @media (max-width: 520px) { #hud { gap: 12px; font-size: 10px; padding: 8px 12px; } }
+
+      #loader {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        background: #05121c; transition: opacity .8s ease; z-index: 10;
+      }
+      #loader.done { opacity: 0; pointer-events: none; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Playfair+Display:ital@0;1&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <canvas id="gl"></canvas>
+
+    <div id="overlay">
+      <section class="chapter" id="c-hero">
+        <h1>Ce que la surface ne montre pas</h1>
+        <p>Une ferme aquacole se juge depuis le ponton. Regardez sous la ligne d'eau.</p>
+      </section>
+      <section class="chapter" id="c-dive">
+        <h2>Sous la ligne d'eau</h2>
+        <p>La colonne d'eau porte les rejets, les traitements, les excédents d'aliment.</p>
+      </section>
+      <section class="chapter" id="c-floor">
+        <h2>Le fond</h2>
+        <p>C'est ici que la décision prise en surface s'écrit, saison après saison.</p>
+      </section>
+    </div>
+
+    <div id="hud">
+      <span>Saison <b id="hud-season">—</b></span>
+      <span>Santé <b id="hud-health">—</b></span>
+      <span>Semaine <b id="hud-week">—</b></span>
+    </div>
+    <div id="loader"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

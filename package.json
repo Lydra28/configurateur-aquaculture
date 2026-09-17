@@ -1,0 +1,19 @@
+{
+  "name": "nemo3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "test": "node --test tests/ecosystem.test.js"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "lil-gui": "^0.20.0",
+    "vite": "^7.0.0"
+  }
+}
