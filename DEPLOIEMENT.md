@@ -38,3 +38,5 @@ Créer un dépôt vide sur github.com (privé ou public), puis :
 - Netlify Drop : `npm run build` puis glisser le dossier `dist/` sur
   app.netlify.com/drop — zéro compte git, mais pas de redéploiement
   automatique.
+
+> Note : le dépôt est public — chaque push sur `main` déclenche automatiquement un déploiement Vercel (~1 min), visible dans l onglet Deployments.
