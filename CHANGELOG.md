@@ -446,3 +446,18 @@ maquette montrait 6 placeholders), libellé du panneau impact renommé
   bande, comme le mock Figma.
 - Espacement des cages égalisé À L'ÉCRAN : x écran ∝ tan(angle), pas à
   l'angle — angles recalés (0,10/0,545/0,836 rad, profondeurs 58/76/92 m).
+
+## 02/10/2026 — flux de travail : branche `staging` + preview fixe (Claude + Romain)
+
+- Branche `staging` créée via github.com (le push en ligne de commande
+  était bloqué GH007 : e-mail privé dans le commit de tête, déjà public).
+  Travail quotidien sur `staging` ; `main` = prod ; mise en prod par
+  Pull Request `staging → main` ; ne jamais supprimer `staging`.
+- URL de preview fixe pour l'équipe :
+  `https://configurateur-aquaculture-git-staging-devonia.vercel.app`
+- Deployment Protection (Vercel Authentication) désactivée : la preview
+  s'ouvre sans compte Vercel (vérifié depuis un navigateur sans session).
+- E-mail git global passé à l'adresse masquée GitHub
+  (`291065423+Lydra28@users.noreply.github.com`) ; le réglage local du
+  dépôt qui forçait l'adresse Gmail a été supprimé.
+- `DEPLOIEMENT.md` réécrit : routine quotidienne + procédure de mise en prod.
