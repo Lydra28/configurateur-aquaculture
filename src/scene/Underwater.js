@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { fbm2D } from '../core/valueNoise.js'
 import { NOISE_GLSL } from '../shaders/noise.glsl.js'
+import { CAUSTICS_GLSL } from '../shaders/caustics.glsl.js'
+import { CausticLight } from './CausticLight.js'
 import { clamp, lerp } from '../core/math.js'
 
 const FLOOR_SIZE = 900
@@ -39,6 +41,7 @@ void main() {
 const FLOOR_FRAG = /* glsl */ `
 precision highp float;
 ${NOISE_GLSL}
+${CAUSTICS_GLSL}
 
 uniform vec3  uLivingColor;
 uniform vec3  uDeadColor;
@@ -50,23 +53,14 @@ uniform float uBiodiversity;
 uniform float uSediment;
 uniform float uFogDensity;
 uniform float uCausticStrength;
+uniform float uCausticScale;
+uniform vec3  uCausticColor;
+uniform float uCausticTime;
 uniform vec3  uCameraPos;
 
 in vec3 vWorldPos;
 in vec3 vNormal;
 out vec4 fragColor;
-
-/**
- * Caustiques : le réseau lumineux projeté par les vagues.
- * Deux couches de |bruit| en opposition donnent les lignes fines et les
- * cellules mouvantes, sans avoir à tracer le moindre rayon depuis la surface.
- */
-float caustics(vec2 p, float t) {
-  float a = abs(noised(p * 0.42 + vec2(t * 0.09, -t * 0.06)).x);
-  float b = abs(noised(p * 0.58 - vec2(t * 0.07, t * 0.11)).x);
-  float net = 1.0 - clamp((a + b) * 2.6, 0.0, 1.0);
-  return pow(net, 4.0);
-}
 
 void main() {
   vec3 N = normalize(vNormal);
@@ -84,13 +78,16 @@ void main() {
   albedo = mix(albedo, vec3(0.28, 0.26, 0.22), uSediment * 0.55);
 
   float diffuse = max(dot(N, normalize(uSunDirection)), 0.0) * 0.55 + 0.45;
-  float caustic = caustics(vWorldPos.xz, uTime) * uCausticStrength;
+  // Caustiques : réseau partagé avec les objets du fond (CausticLight), les
+  // pentes tournées vers la surface en reçoivent le plus.
+  float caustic = caustics(vWorldPos.xz, uCausticTime, uCausticScale)
+    * uCausticStrength * clamp(N.y, 0.0, 1.0);
 
   // L'ambiante porte la visibilité (lumière déjà diffusée par le milieu), le
   // soleil ne fait plus que sculpter le relief.
   vec3 ambient = normalize(max(uWaterColor, vec3(0.001))) * 0.62;
   vec3 color = albedo * (ambient + uSunColor * diffuse * 1.6);
-  color += mix(uSunColor, ambient, 0.55) * caustic * albedo * 3.2;
+  color += uCausticColor * caustic * albedo;
 
   // Brouillard sous-marin : c'est lui qui donne la profondeur et qui se
   // referme quand l'eau se charge.
@@ -182,6 +179,8 @@ export class Underwater {
     this.ambientColor = new THREE.Color(1, 1, 1)
     this._turbidity = 0.1
     this._causticBase = 1
+    // Une seule lumière de caustiques pour le sol ET les objets du fond.
+    this.caustics = new CausticLight()
 
     // --- Sol ----------------------------------------------------------
     this.floorUniforms = {
@@ -194,7 +193,10 @@ export class Underwater {
       uBiodiversity: { value: 1 },
       uSediment: { value: 0 },
       uFogDensity: { value: 0.012 },
-      uCausticStrength: { value: 1 },
+      uCausticStrength: this.caustics.uniforms.uCausticStrength,
+      uCausticScale: this.caustics.uniforms.uCausticScale,
+      uCausticColor: this.caustics.uniforms.uCausticColor,
+      uCausticTime: this.caustics.uniforms.uCausticTime,
       uCameraPos: { value: new THREE.Vector3() },
     }
     this.floor = new THREE.Mesh(
@@ -449,8 +451,7 @@ export class Underwater {
     this.floorUniforms.uSunDirection.value.copy(sky.sunDirection)
     // Les caustiques sont dessinées par la surface : elles s'effacent avec la
     // profondeur, indépendamment de la turbidité.
-    this.floorUniforms.uCausticStrength.value =
-      this._causticBase * Math.exp(-depth / 42)
+    this.caustics.update(elapsed, this._causticBase * Math.exp(-depth / 42), this.lightColor, this.ambientColor)
     this.snowUniforms.uTime.value = elapsed
     this.snowUniforms.uCameraPos.value.copy(camera.position)
     this.snowUniforms.uPixelRatio.value = pixelRatio

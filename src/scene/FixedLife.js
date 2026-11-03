@@ -180,7 +180,7 @@ function buildCrabGeometry(seed) {
 }
 
 export class FixedLife {
-  constructor({ starfishCount = 85, urchinCount = 90, crabCount = 40 } = {}) {
+  constructor({ starfishCount = 85, urchinCount = 90, crabCount = 40, caustics = null } = {}) {
     this.group = new THREE.Group()
     const rnd = seededRandom(20260920)
     const dummy = new THREE.Object3D()
@@ -213,6 +213,7 @@ export class FixedLife {
         emissive,
         emissiveIntensity,
       })
+      caustics?.patch(material)
       const mesh = new THREE.InstancedMesh(builder(seed), material, count)
       const scales = []
       for (let i = 0; i < count; i++) {

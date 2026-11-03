@@ -64,16 +64,17 @@ scene.add(ocean.mesh)
 const underwater = new Underwater({ moundCount: 0, kelpCount: 0 })
 scene.add(underwater.group)
 
-const rocks = new Rocks()
+// Les objets du fond reçoivent le même réseau de caustiques que le sol.
+const rocks = new Rocks({ caustics: underwater.caustics })
 underwater.group.add(rocks.group) // hérite du masquage par passe
 
-const flora = new Flora()
+const flora = new Flora({ caustics: underwater.caustics })
 underwater.group.add(flora.group)
 
 const sardines = new Sardines()
 underwater.group.add(sardines.mesh)
 
-const fixedLife = new FixedLife()
+const fixedLife = new FixedLife({ caustics: underwater.caustics })
 underwater.group.add(fixedLife.group)
 
 const demersals = new DemersalFish()
@@ -205,7 +206,7 @@ store.subscribe((state) => {
   applyImpact(scenarioDirector.active ? mergeScenario(scenarioDirector._current) : state)
 })
 
-const panel = createDebugPanel(store, { grading, resolution })
+const panel = createDebugPanel(store, { grading, resolution, caustics: underwater.caustics })
 
 /* ------------------------------------------------------------------ */
 /* Interface                                                           */

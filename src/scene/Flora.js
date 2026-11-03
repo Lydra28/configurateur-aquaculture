@@ -250,7 +250,7 @@ function buildZosteraGeometry(seed) {
 /* ------------------------------------------------------------------ */
 
 export class Flora {
-  constructor({ laminariaCount = 1250, fucusCount = 680, zosteraCount = 1850 } = {}) {
+  constructor({ laminariaCount = 1250, fucusCount = 680, zosteraCount = 1850, caustics = null } = {}) {
     this.group = new THREE.Group()
     this._time = { value: 0 }
     this._species = { laminaria: [], fucus: [], zostera: [] }
@@ -277,6 +277,7 @@ export class Flora {
               transformed.z += cos(uTime * 0.63 + aSway * 1.31) * swell * 0.26;
               transformed.z += aH * 0.22;`)
         }
+        caustics?.patch(material)
         const mesh = new THREE.InstancedMesh(builder(seed), material, perVariant)
         const vigors = []
         const shades = []

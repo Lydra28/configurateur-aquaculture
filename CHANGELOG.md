@@ -539,3 +539,35 @@ nulle part — une part du « pixelisé » signalé par Romain.
 - Au passage, cause de l'« écran d'eau uni » intermittent : chargement dans
   une fenêtre 0×0 (panneau navigateur masqué) → aspect NaN → placements NaN.
   Jamais dans un vrai onglet ; garde à ajouter (tâche séparée), piège consigné.
+
+## 03/11/2026 — caustiques lisibles, partagées avec les objets du fond (Claude)
+
+Levier n°2 du plan rendu. Les caustiques du sol existaient mais ne se
+lisaient pas (puissance 4 → fils trop fins, cellules de ~2 m vues de 50 m) et
+n'existaient QUE sur le sol : une roche posée sur du sable éclairé restait
+mate, ce qui trahissait le calque. Additif et débrayable : intensité 0 =
+rendu validé strictement identique.
+
+- **`shaders/caustics.glsl.js`** : réseau à deux échelles — grandes cellules
+  (~7 m, lentes) qui portent la lecture de loin, couche fine (×2,7, plus
+  rapide) qui scintille ; carré au lieu de puissance 4 → cellules douces.
+- **`scene/CausticLight.js`** : UNE lumière (couleur, force, échelle, horloge)
+  partagée par le sol et les objets Lambert, sinon leurs réseaux ne
+  coïncideraient pas. `patch(material)` greffe le réseau sur un
+  `MeshLambertMaterial` (instancié ou non) en appelant d'abord son
+  `onBeforeCompile` existant (balancement de la flore conservé) ; lumière
+  pondérée par la normale tournée vers la surface et par l'albédo.
+  `customProgramCacheKey` porte l'injection d'origine (piège consigné).
+- Sol (`Underwater.js`) : même réseau, pondéré par `N.y` ; `Rocks`, `Flora`,
+  `FixedLife` : option `caustics`, une ligne par matériau ; branchement dans
+  `main.js`.
+- Panneau debug « Caustiques » : Intensité, Sur les objets, Échelle.
+  Défaut 1,2 / 0,8 / 0,14 (choisi sur captures : coupé, défaut, sol seul,
+  fort 2, grandes cellules 0,08).
+- Coût mesuré (GPU intégré AMD, 1920×1080, 4×, passe immergée seule, médiane
+  de 60 rendus, A/B dans la même page) : 7,8 ms tout greffé, 8,1 ms objets
+  dégreffés, 7,2 ms sans caustiques au sol → objets gratuits (dans le bruit),
+  sol ≈ 0,6 ms dont la moitié existait déjà.
+- Vérifié : 6/6 tests, build OK, captures headless sur le vrai GPU, aucune
+  erreur console. Non vérifié : scintillement de la couche fine au loin, en
+  mouvement, sur un vrai écran — réglable par « Échelle » si gênant.

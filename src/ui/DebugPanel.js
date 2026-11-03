@@ -7,7 +7,7 @@ import { WEEKS_PER_YEAR, DEFAULT_CONFIG, DEFAULT_TIMELINE } from '../state/ecosy
  * Se masque avec la touche H, et ne s'ouvre pas du tout si l'URL ne porte
  * pas `?debug` — la prod n'a pas à embarquer un panneau replié.
  */
-export function createDebugPanel(store, { onReset, grading, resolution } = {}) {
+export function createDebugPanel(store, { onReset, grading, resolution, caustics } = {}) {
   if (!new URLSearchParams(location.search).has('debug')) return null
 
   const gui = new GUI({ title: 'NEMO — écosystème' })
@@ -76,6 +76,15 @@ export function createDebugPanel(store, { onReset, grading, resolution } = {}) {
     r.add(resolution, 'samples').name('Anticrénelage actuel').listen().disable()
     r.add(resolution, 'maxSamples', { Aucun: 0, '2×': 2, '4×': 4 })
       .name('Anticrénelage max').onChange((n) => resolution.setMaxSamples(n))
+  }
+
+  // Caustiques : le réseau lumineux de la houle sur le fond et ses objets —
+  // intensité 0 = coupé (image identique à avant), échelle = taille des cellules.
+  if (caustics) {
+    const c = gui.addFolder('Caustiques').close()
+    c.add(caustics, 'gain', 0, 4, 0.05).name('Intensité')
+    c.add(caustics, 'onObjects', 0, 1.5, 0.05).name('Sur les objets')
+    c.add(caustics.uniforms.uCausticScale, 'value', 0.04, 0.5, 0.005).name('Échelle')
   }
 
   // Étalonnage : réglage à l'œil, en direct — la case « Actif » permet la

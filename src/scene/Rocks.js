@@ -83,7 +83,7 @@ function buildPebbleGeometry() {
 }
 
 export class Rocks {
-  constructor({ blockCount = 150, pebbleCount = 650 } = {}) {
+  constructor({ blockCount = 150, pebbleCount = 650, caustics = null } = {}) {
     this.group = new THREE.Group()
     const rnd = seededRandom(20260917)
 
@@ -150,6 +150,7 @@ export class Rocks {
       // flatShading : chaque facette attrape la lumière — sans lui, la dalle
       // fracturée redevient une masse lisse et sombre.
       const material = new THREE.MeshLambertMaterial({ flatShading: true })
+      caustics?.patch(material)
       const mesh = new THREE.InstancedMesh(geometry, material, perVariant)
       const seeds = []
       for (let i = 0; i < perVariant; i++) {
@@ -178,6 +179,7 @@ export class Rocks {
     // --- Galets : un semis près des arêtes et en nappes -----------------
     const pebbleGeometry = buildPebbleGeometry()
     const pebbleMaterial = new THREE.MeshLambertMaterial({})
+    caustics?.patch(pebbleMaterial)
     this.pebbles = new THREE.InstancedMesh(pebbleGeometry, pebbleMaterial, pebbleCount)
     this._pebbleColors = new Float32Array(pebbleCount * 3)
     this._pebbleSeeds = []
