@@ -89,15 +89,18 @@ void main() {
 `
 
 export class WaterlineSplit {
-  constructor({ line = 1 / 3 } = {}) {
+  constructor({ line = 1 / 3, samples = 4 } = {}) {
     // uLine est en uv depuis le BAS : 1/3 d'écran pour le ciel → ligne à 2/3.
     this.baseLine = 1 - line
 
+    // Anticrénelage : l'`antialias` du renderer ne lisse que le canvas, or
+    // tout le décor est dessiné dans ces deux cibles — c'est donc ICI que les
+    // bords (poissons, filets, roches) se lissent. Réglable à chaud.
     const options = {
       type: THREE.HalfFloatType,
       format: THREE.RGBAFormat,
       depthBuffer: true,
-      samples: 0,
+      samples,
     }
     this.rtAbove = new THREE.WebGLRenderTarget(1, 1, options)
     this.rtBelow = new THREE.WebGLRenderTarget(1, 1, options)
@@ -139,6 +142,20 @@ export class WaterlineSplit {
     const h = Math.round(height * pixelRatio)
     this.rtAbove.setSize(w, h)
     this.rtBelow.setSize(w, h)
+  }
+
+  get samples() { return this.rtBelow.samples }
+
+  /**
+   * Nombre d'échantillons MSAA (0, 2, 4). Le `dispose()` libère les
+   * framebuffers : three les recrée au prochain rendu avec la nouvelle valeur.
+   */
+  setSamples(samples) {
+    for (const rt of [this.rtAbove, this.rtBelow]) {
+      if (rt.samples === samples) continue
+      rt.samples = samples
+      rt.dispose()
+    }
   }
 
   update(elapsed) {

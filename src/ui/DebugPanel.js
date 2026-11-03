@@ -7,7 +7,7 @@ import { WEEKS_PER_YEAR, DEFAULT_CONFIG, DEFAULT_TIMELINE } from '../state/ecosy
  * Se masque avec la touche H, et ne s'ouvre pas du tout si l'URL ne porte
  * pas `?debug` — la prod n'a pas à embarquer un panneau replié.
  */
-export function createDebugPanel(store, { onReset } = {}) {
+export function createDebugPanel(store, { onReset, grading, resolution } = {}) {
   if (!new URLSearchParams(location.search).has('debug')) return null
 
   const gui = new GUI({ title: 'NEMO — écosystème' })
@@ -65,6 +65,32 @@ export function createDebugPanel(store, { onReset } = {}) {
     view.sédiment = +d.sediment.toFixed(2)
     view.bloom = +d.bloom.toFixed(2)
   })
+
+  // Rendu : témoin de la qualité adaptative — si une valeur « actuelle » est
+  // sous son plafond, la machine a été jugée à la peine (ça remonte tout seul
+  // avec l'aisance). Le plafond d'anticrénelage sert d'A/B à l'œil.
+  if (resolution) {
+    const r = gui.addFolder('Rendu').close()
+    r.add(resolution, 'pixelRatio').name('Résolution actuelle').listen().disable()
+    r.add(resolution, 'max').name('Résolution max').disable()
+    r.add(resolution, 'samples').name('Anticrénelage actuel').listen().disable()
+    r.add(resolution, 'maxSamples', { Aucun: 0, '2×': 2, '4×': 4 })
+      .name('Anticrénelage max').onChange((n) => resolution.setMaxSamples(n))
+  }
+
+  // Étalonnage : réglage à l'œil, en direct — la case « Actif » permet la
+  // comparaison instantanée avec le rendu validé (strictement identique).
+  if (grading) {
+    const g = gui.addFolder('Étalonnage').close()
+    const u = grading.uniforms
+    g.add(grading, 'enabled').name('Actif')
+    g.add(u.uContrast, 'value', 0.9, 1.25, 0.005).name('Contraste')
+    g.add(u.uSaturation, 'value', 0.7, 1.5, 0.005).name('Saturation')
+    g.add(u.uSplitStrength, 'value', 0, 1, 0.01).name('Virage (force)')
+    g.addColor(u.uShadowTint, 'value').name('Teinte ombres')
+    g.addColor(u.uHighlightTint, 'value').name('Teinte lumières')
+    g.add(u.uVignette, 'value', 0, 0.6, 0.01).name('Vignettage')
+  }
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'h' || e.key === 'H') gui.show(gui._hidden)

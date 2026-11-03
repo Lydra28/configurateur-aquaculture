@@ -19,6 +19,8 @@ import { LightShafts } from './scene/LightShafts.js'
 import { CrossingBubbles } from './scene/CrossingBubbles.js'
 import { StaticShot } from './camera/StaticShot.js'
 import { WaterlineSplit } from './render/WaterlineSplit.js'
+import { GradingPass } from './render/GradingPass.js'
+import { AdaptiveResolution } from './render/AdaptiveResolution.js'
 import { createEcosystemStore } from './state/ecosystem.js'
 import { ScenarioDirector, resolveScenario, PRESETS } from './state/scenario.js'
 import { createDebugPanel } from './ui/DebugPanel.js'
@@ -128,6 +130,14 @@ const bloom = new UnrealBloomPass(
 )
 composer.addPass(bloom)
 composer.addPass(new OutputPass())
+// Étalonnage : dernier mot sur l'image, après tone mapping — débrayable
+// (grading.enabled = false) pour comparer avec le rendu validé à l'identique.
+const grading = new GradingPass()
+composer.addPass(grading)
+
+// Résolution adaptative : descend quand ça rame vraiment, remonte quand ça
+// respire, ignore l'échauffement et l'onglet masqué — voir le module.
+const resolution = new AdaptiveResolution(renderer, composer, split)
 
 /* ------------------------------------------------------------------ */
 /* État                                                                */
@@ -195,7 +205,7 @@ store.subscribe((state) => {
   applyImpact(scenarioDirector.active ? mergeScenario(scenarioDirector._current) : state)
 })
 
-const panel = createDebugPanel(store, {})
+const panel = createDebugPanel(store, { grading, resolution })
 
 /* ------------------------------------------------------------------ */
 /* Interface                                                           */
@@ -225,8 +235,6 @@ function updateInterface(dt) {
 
 const clock = new THREE.Clock()
 let elapsed = 0
-let currentPixelRatio = Math.min(devicePixelRatio, 2)
-let slowFrames = 0
 let shaftsOn = false // shafts.update décide ; les passes masquent puis restaurent
 const underwaterFog = new THREE.FogExp2(0x0a2b33, 0.012)
 const _right = new THREE.Vector3()
@@ -313,7 +321,7 @@ function frame() {
   shot.aimSun(sky.sunDirection, SUN_FRAMING, dt, store.derived.sunElevation)
 
   sky.update(renderer)
-  underwater.update(elapsed, shot.below, sky, currentPixelRatio)
+  underwater.update(elapsed, shot.below, sky, resolution.pixelRatio)
   flora.update(elapsed)
   sardines.update(dt, elapsed, shot.heading)
   demersals.update(dt, elapsed, shot.heading)
@@ -324,7 +332,7 @@ function frame() {
   if (scenarioState) applyScenario(scenarioState)
   shafts.update(elapsed, shot.below, sky, underwater.lightColor)
   shaftsOn = shafts.mesh.visible
-  bubbles.update(elapsed, currentPixelRatio)
+  bubbles.update(elapsed, resolution.pixelRatio)
 
   renderAbove()
   renderBelow()
@@ -339,16 +347,7 @@ function frame() {
   updateInterface(dt)
   composer.render()
 
-  // Résolution adaptative : deux passes coûtent plus cher qu'une — on
-  // redescend une seule fois, sans jamais remonter, pour ne pas osciller.
-  if (dt > 1 / 32) slowFrames++; else slowFrames = Math.max(0, slowFrames - 1)
-  if (slowFrames > 90 && currentPixelRatio > 1) {
-    currentPixelRatio = Math.max(1, currentPixelRatio - 0.25)
-    renderer.setPixelRatio(currentPixelRatio)
-    composer.setPixelRatio(currentPixelRatio)
-    split.setSize(innerWidth, innerHeight, currentPixelRatio)
-    slowFrames = 0
-  }
+  resolution.update(dt, elapsed)
 
   requestAnimationFrame(frame)
 }
@@ -357,7 +356,7 @@ addEventListener('resize', () => {
   shot.resize()
   renderer.setSize(innerWidth, innerHeight)
   composer.setSize(innerWidth, innerHeight)
-  split.setSize(innerWidth, innerHeight, currentPixelRatio)
+  split.setSize(innerWidth, innerHeight, resolution.pixelRatio)
 })
 
 requestAnimationFrame(() => {
@@ -381,7 +380,7 @@ window.NEMO = {
   /** Accès direct aux objets de scène — réglage, tests, captures de référence. */
   three: {
     scene, renderer, sky, ocean, underwater, rocks, flora, sardines, fixedLife, demersals, farm, cagedFish, farmWaste, shafts, bubbles,
-    shot, split, composer,
+    shot, split, composer, grading, resolution,
     // Compat : « la caméra » par défaut est celle du monde submergé.
     get camera() { return shot.below },
   },

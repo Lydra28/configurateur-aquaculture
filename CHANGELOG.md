@@ -461,3 +461,81 @@ maquette montrait 6 placeholders), libellé du panneau impact renommé
   (`291065423+Lydra28@users.noreply.github.com`) ; le réglage local du
   dépôt qui forçait l'adresse Gmail a été supprimé.
 - `DEPLOIEMENT.md` réécrit : routine quotidienne + procédure de mise en prod.
+
+## 05/10/2026 — rendu, levier 1 : passe d'étalonnage couleur (Claude, à valider par le groupe)
+
+Chantier « amélioration du rendu » (suite au bench Komorebi — mêmes
+techniques que nous, Three r180 ; son avantage = matières + étalonnage).
+Levier 1 sur 4 : l'étalonnage, choisi car additif et débrayable.
+
+- **`render/GradingPass.js` + `shaders/grading.frag.js`** : passe en bout
+  de chaîne (après OutputPass, donc après tone mapping — on règle ce que
+  l'œil voit). Contraste pivot gris, saturation par luminance, virage
+  ombres/hautes lumières (split-toning : ombres bleu canard, lumières
+  réchauffées), vignettage doux. AUCUN module validé retouché :
+  `grading.enabled = false` restitue l'image d'avant à l'identique.
+- Teintes stockées en espace écran (contournement de la gestion couleur
+  de three) : la couleur du sélecteur est celle que le shader applique.
+- Réglages en direct : `?debug` → dossier « Étalonnage » (case Actif pour
+  l'A/B instantané). Accès script : `NEMO.three.grading`.
+- `chantier-hero-video.md` : idée Hero vidéo au scroll parquée (décision
+  groupe), rien à coder avant validation.
+- Vérifié : 6/6 tests, build OK, A/B navigateur état sain + préréglage
+  Atlantic Sapphire (captures avant/après transmises à Romain). Valeurs
+  par défaut volontairement discrètes — le calibrage fin revient à Romain
+  au panneau debug, puis validation du groupe sur la preview staging.
+
+## 06/10/2026 — résolution adaptative réparée : fini les poissons pixelisés à vie (Claude, validé par Romain)
+
+Diagnostic d'un flou signalé par Romain (« les poissons sont plus
+pixélisés qu'avant ») : ce n'était PAS l'étalonnage — l'ancienne
+résolution adaptative de `main.js` descendait d'un cran après ~3 s de
+lenteur « sans jamais remonter ». Les premières secondes (compilation
+des shaders) suffisaient à déclasser la définition pour TOUTE la
+session ; mesuré en session : ratio 1 pour un écran à 1.5, image étirée.
+
+- **`render/AdaptiveResolution.js`** (extrait de `main.js`, qui dépassait
+  les 300 lignes) : trois garde-fous — échauffement ignoré (5 s),
+  onglet masqué ignoré (le navigateur bride, ce n'est pas de la
+  lenteur), et REMONTÉE après ~10 s d'aisance franche. Seuils
+  asymétriques (descente < 32 fps, remontée > 50 fps) et patience
+  doublée à chaque descente (600 → 1200 → … frames, plafond ~2 min) :
+  une machine vraiment limite se stabilise en bas au lieu du yo-yo.
+- Panneau debug : dossier « Rendu » (Résolution actuelle / max) pour que
+  le déclassement soit VISIBLE au lieu de silencieux. Accès script :
+  `NEMO.three.resolution`.
+- Vérifié : 6/6 tests, build OK, les 4 branches exercées en navigateur
+  (échauffement inerte, descente 2 → 1.75 → 1.5, patience 600 → 1200 →
+  2400, remontée 0.75 → 1), état restauré après test.
+
+## 02/11/2026 — anticrénelage MSAA sur les cibles de rendu, par crans (Claude, validé par Romain)
+
+Origine : autopsie du skill « teardown » (00_inbox) — même pile de rendu que
+nous, mais `samples: 8` sur ses cibles là où `WaterlineSplit` avait
+`samples: 0`. L'`antialias: true` du renderer ne lisse que le canvas ; tout le
+décor étant dessiné dans les deux cibles du composite, il n'était anticrénelé
+nulle part — une part du « pixelisé » signalé par Romain.
+
+- **`render/WaterlineSplit.js`** : cibles créées avec `samples: 4` (option du
+  constructeur), `setSamples(n)` à chaud (dispose → three recrée les
+  framebuffers au rendu suivant), getter `samples`.
+- **`render/AdaptiveResolution.js`** : devient une échelle de QUALITÉ —
+  descente 4× → 2× → définition par crans de 0,25 → 0× ; remontée en sens
+  inverse ; `maxSamples` = plafond (panneau debug) que la remontée ne dépasse
+  pas. Garde-fous inchangés (échauffement, onglet masqué, patience doublée).
+- Panneau debug « Rendu » : « Anticrénelage actuel » (témoin) et
+  « Anticrénelage max » (Aucun / 2× / 4×) pour l'A/B à l'œil.
+- Mesures sur le GPU intégré de Romain (AMD Radeon, ANGLE D3D11), 1920×1080
+  rendus : passe émergée 4,2 → 6,7 ms (4×), immergée 5,8 → 8,3 ms ; soit ~+6 ms
+  par image en 4×, ~deux tiers de ça en 2× ; 8× (+10 ms) exclu. D'où
+  l'anticrénelage en PREMIER cran sacrifié : en pleine définition sur cette
+  machine le 4× dépasse le budget 60 fps, un cran plus bas il passe.
+- Preuve du lissage, mesurée sur l'image finale lue pixel par pixel
+  (800×450, ratio 1) : contours durs (saut de luminance > 40) −36,6 % en 4×,
+  −25,6 % en 2× ; variation totale moyenne 9,93 → 7,97.
+- Vérifié : 6/6 tests, build OK, chargement en 4×, échelle complète simulée
+  (2×@1.5 › 2×@1.25 › 2×@1 › 0×@1, puis remontée inverse jusqu'à 4×@1.5),
+  plafond 2× et 0× respectés, aucune géométrie NaN sur fenêtre valide.
+- Au passage, cause de l'« écran d'eau uni » intermittent : chargement dans
+  une fenêtre 0×0 (panneau navigateur masqué) → aspect NaN → placements NaN.
+  Jamais dans un vrai onglet ; garde à ajouter (tâche séparée), piège consigné.
