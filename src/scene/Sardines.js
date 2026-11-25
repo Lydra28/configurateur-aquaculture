@@ -87,7 +87,7 @@ function buildSardineGeometry() {
 }
 
 export class Sardines {
-  constructor({ count = 320, schools = 2, fishLength = 1.0 } = {}) {
+  constructor({ count = 320, schools = 2, fishLength = 1.0, sheen = null } = {}) {
     const rnd = seededRandom(20260919)
     this._fishLength = fishLength
     // créé AVANT le matériau : update() tourne dès la première frame, alors
@@ -111,6 +111,7 @@ export class Sardines {
           transformed.z += sin(uTime * 7.0 + phase + position.x * 4.0)
                          * tailness * tailness * 0.22;`)
     }
+    sheen?.patch(material)
 
     this.mesh = new THREE.InstancedMesh(buildSardineGeometry(), material, count)
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)

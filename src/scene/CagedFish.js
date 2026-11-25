@@ -175,7 +175,7 @@ const SPECIES = {
 
 export class CagedFish {
   /** @param farm le module FarmCages — source des repères de jupes. */
-  constructor(farm) {
+  constructor(farm, { sheen = null } = {}) {
     this.group = new THREE.Group()
     this._farm = farm
     this._time = { value: 0 }
@@ -205,6 +205,7 @@ export class CagedFish {
             transformed.z += sin(uTime * 3.8 + phase + position.x * 3.2)
                            * tailness * tailness * 0.15;`)
       }
+      sheen?.patch(material)
       const mesh = new THREE.InstancedMesh(
         buildFishGeometry(species), material, species.count)
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)

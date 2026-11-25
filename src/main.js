@@ -71,13 +71,13 @@ underwater.group.add(rocks.group) // hérite du masquage par passe
 const flora = new Flora({ caustics: underwater.caustics })
 underwater.group.add(flora.group)
 
-const sardines = new Sardines()
+const sardines = new Sardines({ sheen: underwater.sheen })
 underwater.group.add(sardines.mesh)
 
 const fixedLife = new FixedLife({ caustics: underwater.caustics })
 underwater.group.add(fixedLife.group)
 
-const demersals = new DemersalFish()
+const demersals = new DemersalFish({ sheen: underwater.sheen })
 underwater.group.add(demersals.group)
 
 // Cages aquacoles : semi-immergées, une moitié par passe de rendu (la
@@ -86,7 +86,7 @@ const farm = new FarmCages()
 scene.add(farm.above, farm.below)
 
 // Poissons d'élevage : dans le monde immergé (masquage par passe hérité).
-const cagedFish = new CagedFish(farm)
+const cagedFish = new CagedFish(farm, { sheen: underwater.sheen })
 underwater.group.add(cagedFish.group)
 
 // Déchets de la ferme (granulés + dépôt) — invisibles à intensité 0.
@@ -206,7 +206,7 @@ store.subscribe((state) => {
   applyImpact(scenarioDirector.active ? mergeScenario(scenarioDirector._current) : state)
 })
 
-const panel = createDebugPanel(store, { grading, resolution, caustics: underwater.caustics, rockDetail: rocks.detail, floor: underwater.floorUniforms })
+const panel = createDebugPanel(store, { grading, resolution, caustics: underwater.caustics, rockDetail: rocks.detail, floor: underwater.floorUniforms, sheen: underwater.sheen })
 
 /* ------------------------------------------------------------------ */
 /* Interface                                                           */

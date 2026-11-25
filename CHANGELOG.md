@@ -629,3 +629,24 @@ en pleine hauteur d'écran, puis écrasés par le composite dans leur bande
   (neige marine, bulles) étaient aplaties verticalement d'un tiers par
   l'écrasement ; elles redeviennent presque rondes, donc un peu plus hautes.
   Non vérifié : rendu sur l'écran 1440p de Romain, redimensionnement à chaud.
+
+## 25/11/2026 — reflet d'écailles des poissons (Claude)
+
+Les poissons se lisaient comme des découpes sombres et plates. Leur palette
+sombre est une décision validée (la silhouette fait lire le poisson sur le
+sable) et le contre-ombrage existe déjà : on n'éclaircit donc rien, on ajoute
+l'éclat du flanc. Additif et débrayable : « Reflet » à 0 = image identique.
+
+- **`scene/FishSheen.js`** : terme spéculaire greffé sur les Lambert des
+  poissons, après leur ondulation de nage — le haut du flanc tourné vers la
+  surface et vers l'œil renvoie un éclat, qui passe quand le poisson vire.
+  Une seule instance dans `Underwater` (`underwater.sheen`).
+- Lien avec l'écosystème : l'éclat suit la clarté de l'eau et s'efface avec
+  la profondeur (même mesure que les caustiques) — en eau chargée, les
+  poissons ternissent.
+- `Sardines`, `DemersalFish`, `CagedFish` : option `sheen`, une ligne chacun.
+- Panneau debug « Poissons » : Reflet (défaut 1,2), Finesse (défaut 18).
+- Vérifié : 6/6 tests, build OK, captures headless 0 / 0,6 / 0,9 / 1,5 (fond,
+  banc, cages), aucune erreur console. Non vérifié : coût GPU (un `pow` par
+  pixel de poisson, non mesuré), scintillement du banc en mouvement, eau
+  chargée, nuit.

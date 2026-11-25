@@ -3,6 +3,7 @@ import { fbm2D } from '../core/valueNoise.js'
 import { NOISE_GLSL } from '../shaders/noise.glsl.js'
 import { CAUSTICS_GLSL } from '../shaders/caustics.glsl.js'
 import { CausticLight } from './CausticLight.js'
+import { FishSheen } from './FishSheen.js'
 import { clamp, lerp } from '../core/math.js'
 
 const FLOOR_SIZE = 900
@@ -204,6 +205,8 @@ export class Underwater {
     this._causticBase = 1
     // Une seule lumière de caustiques pour le sol ET les objets du fond.
     this.caustics = new CausticLight()
+    // Reflet d'écailles des poissons : même lumière filtrée, même clarté.
+    this.sheen = new FishSheen()
 
     // --- Sol ----------------------------------------------------------
     this.floorUniforms = {
@@ -476,6 +479,7 @@ export class Underwater {
     // Les caustiques sont dessinées par la surface : elles s'effacent avec la
     // profondeur, indépendamment de la turbidité.
     this.caustics.update(elapsed, this._causticBase * Math.exp(-depth / 42), this.lightColor, this.ambientColor)
+    this.sheen.update(this._causticBase * Math.exp(-depth / 42), this.lightColor, this.ambientColor)
     this.snowUniforms.uTime.value = elapsed
     this.snowUniforms.uCameraPos.value.copy(camera.position)
     this.snowUniforms.uPixelRatio.value = pixelRatio

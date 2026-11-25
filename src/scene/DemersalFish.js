@@ -117,7 +117,7 @@ const SPECIES = {
 }
 
 export class DemersalFish {
-  constructor({ barCount = 14, dauradeCount = 12 } = {}) {
+  constructor({ barCount = 14, dauradeCount = 12, sheen = null } = {}) {
     this.group = new THREE.Group()
     this._time = { value: 0 }
     const rnd = seededRandom(20260921)
@@ -141,6 +141,7 @@ export class DemersalFish {
             transformed.z += sin(uTime * 4.2 + phase + position.x * 3.5)
                            * tailness * tailness * 0.16;`)
       }
+      sheen?.patch(material)
       return material
     }
 
