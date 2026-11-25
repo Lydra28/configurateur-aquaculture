@@ -609,3 +609,23 @@ fond validé strictement identique.
 - Vérifié : 6/6 tests, build OK, captures headless coupé / 1 / 2 sur le vrai
   GPU, aucune erreur console. Non vérifié : coût GPU (2 bruits de plus par
   pixel de sol, non mesuré), fourmillement en mouvement, fond envasé.
+
+## 25/11/2026 — rendus dimensionnés à leur bande d'écran (Claude)
+
+Performance, sans changement de décor. Les deux mondes étaient rendus chacun
+en pleine hauteur d'écran, puis écrasés par le composite dans leur bande
+(1/3 haut, 2/3 bas) : environ deux fois trop de pixels calculés.
+
+- **`render/WaterlineSplit.js`** : chaque cible prend la hauteur de sa bande
+  plus la marge de houle (`PROFILE_LIMIT`, exporté, remplace le 0,05 en dur
+  de `main.js`) — à 1080p : 1920×414 et 1920×774 au lieu de deux 1920×1080.
+  `fitBands = false` rend l'ancien comportement.
+- Panneau debug « Rendu » : case « Rendus à la bande » pour l'A/B.
+- Mesuré en A/B dans la même page (GPU intégré AMD, 1920×1080, 4×, médiane
+  de 60 rendus, deux allers-retours) : passe émergée 6,3 → 3,2 ms, immergée
+  5,0 → 3,9 ms, image complète 15,1 → 12,9 ms (−15 %).
+- Vérifié : 6/6 tests, build OK, captures avant/après du haut et du bas,
+  aucune erreur console. Effet de bord attendu : les particules en points
+  (neige marine, bulles) étaient aplaties verticalement d'un tiers par
+  l'écrasement ; elles redeviennent presque rondes, donc un peu plus hautes.
+  Non vérifié : rendu sur l'écran 1440p de Romain, redimensionnement à chaud.

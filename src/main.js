@@ -18,7 +18,7 @@ import { FarmWaste } from './scene/FarmWaste.js'
 import { LightShafts } from './scene/LightShafts.js'
 import { CrossingBubbles } from './scene/CrossingBubbles.js'
 import { StaticShot } from './camera/StaticShot.js'
-import { WaterlineSplit } from './render/WaterlineSplit.js'
+import { WaterlineSplit, PROFILE_LIMIT } from './render/WaterlineSplit.js'
 import { GradingPass } from './render/GradingPass.js'
 import { AdaptiveResolution } from './render/AdaptiveResolution.js'
 import { createEcosystemStore } from './state/ecosystem.js'
@@ -265,7 +265,7 @@ function updateWaterProfile() {
     const x = cam.position.x + _right.x * sx + _fwd.x * dist
     const z = cam.position.z + _right.z * sx + _fwd.z * dist
     const h = ocean.sampleHeight(x, z, elapsed)
-    split.profile[i] = clamp(h * metersToScreen * 0.85, -0.05, 0.05)
+    split.profile[i] = clamp(h * metersToScreen * 0.85, -PROFILE_LIMIT, PROFILE_LIMIT)
   }
 }
 

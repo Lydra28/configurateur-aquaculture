@@ -14,6 +14,13 @@ import * as THREE from 'three'
  * l'EffectComposer, en aval — rien ne change pour les shaders existants.
  */
 
+/**
+ * Amplitude maximale de la ligne d'eau autour de sa hauteur moyenne, en
+ * fraction d'écran : main.js borne le profil de houle à cette valeur, et les
+ * cibles de rendu prennent cette marge pour ne jamais être agrandies.
+ */
+export const PROFILE_LIMIT = 0.05
+
 const VERT = /* glsl */ `
 out vec2 vUv;
 void main() {
@@ -92,6 +99,9 @@ export class WaterlineSplit {
   constructor({ line = 1 / 3, samples = 4 } = {}) {
     // uLine est en uv depuis le BAS : 1/3 d'écran pour le ciel → ligne à 2/3.
     this.baseLine = 1 - line
+    // Chaque cible à la hauteur de SA bande (voir setSize) ; false = ancien
+    // comportement, deux cibles plein écran — A/B au panneau debug.
+    this.fitBands = true
 
     // Anticrénelage : l'`antialias` du renderer ne lisse que le canvas, or
     // tout le décor est dessiné dans ces deux cibles — c'est donc ICI que les
@@ -140,8 +150,14 @@ export class WaterlineSplit {
   setSize(width, height, pixelRatio) {
     const w = Math.round(width * pixelRatio)
     const h = Math.round(height * pixelRatio)
-    this.rtAbove.setSize(w, h)
-    this.rtBelow.setSize(w, h)
+    // Le composite écrase chaque texture dans sa bande d'écran : rendre les
+    // deux mondes en pleine hauteur calculait ~2 fois trop de pixels. Chaque
+    // cible prend la hauteur de sa bande, plus la marge de houle (là où la
+    // ligne s'écarte le plus, la texture est affichée à 1:1, jamais agrandie).
+    const above = this.fitBands ? 1 - this.baseLine + PROFILE_LIMIT : 1
+    const below = this.fitBands ? this.baseLine + PROFILE_LIMIT : 1
+    this.rtAbove.setSize(w, Math.round(h * above))
+    this.rtBelow.setSize(w, Math.round(h * below))
   }
 
   get samples() { return this.rtBelow.samples }

@@ -76,6 +76,8 @@ export function createDebugPanel(store, { onReset, grading, resolution, caustics
     r.add(resolution, 'samples').name('Anticrénelage actuel').listen().disable()
     r.add(resolution, 'maxSamples', { Aucun: 0, '2×': 2, '4×': 4 })
       .name('Anticrénelage max').onChange((n) => resolution.setMaxSamples(n))
+    r.add(resolution.split, 'fitBands').name('Rendus à la bande')
+      .onChange(() => resolution.apply(resolution.pixelRatio))
   }
 
   // Caustiques : le réseau lumineux de la houle sur le fond et ses objets —
