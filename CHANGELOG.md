@@ -743,3 +743,32 @@ panneau debug (dossier « Faune ajoutée »).
   groupe. Limite connue : les placements relatifs au regard sont résolus une
   fois ; quand la saison fait tourner le cap, ils se décalent avec le reste
   du décor (comme les cages et les poissons garantis).
+
+## 25/11/2026 — la qualité adaptative vise la fluidité (Claude, retour de Romain)
+
+Romain : « les mouvements ne sont pas hyper fluides ». Mesuré à la définition
+de son écran (2560×1440, GPU intégré AMD) : 21,8 ms par image en pleine
+qualité (~46 images/s), or l'échelle ne descendait que sous 32 images/s.
+
+- **`render/AdaptiveResolution.js`** : cible ~60 images/s — descente quand la
+  moyenne glissante du temps d'image dépasse 1/54 s, aisance sous 1/58 s.
+  Nouveaux garde-fous : probation après une remontée (essai raté annulé en
+  ~0,5 s, compté une fois), deux essais ratés figent le plafond ; arrivé en
+  bas encore lent, on garde le cran le plus haut qui faisait aussi bien
+  (écran bridé à 50 Hz : la qualité est rendue) ; `rearm()` au
+  redimensionnement et au changement de plafond ; première image ignorée
+  au retour d'un onglet masqué. Première version rejetée en relecture
+  (verrou posé à tort, essais comptés en double), réécrite.
+- **`tests/adaptiveResolution.test.js`** : 9 scénarios simulés (machine de
+  Romain d'après les temps mesurés, la même avec synchro verticale, machine
+  rapide, écran 50 Hz, GPU lent sur 50 Hz, machine très faible, démarrage
+  laborieux puis remontée, essai raté compté une fois, onglet masqué) ;
+  `npm test` lance les deux fichiers.
+- Résultat chez Romain, boucle réelle observée 45 s : 44 images/s au
+  départ, 55 à 61 au cran 1,5 / 2×, puis 78 au cran 1,25 / 2×. Contrepartie : image un peu moins
+  nette sur les machines qui n'atteignent pas 60 en pleine qualité.
+- Kelp NON allégé, mesure à l'appui : les 12 colonnes lointaines ne coûtent
+  que 0,3 ms, les 15 proches 1,4 ms (leurs lames couvrent l'écran) — les
+  éclaircir se verrait pour un gain marginal.
+- Vérifié : 16/16 tests, build OK. Non vérifié : vrai écran 240 Hz de Romain
+  (mesures en Chrome headless sur le même GPU), autres machines du groupe.

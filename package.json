@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 4173",
-    "test": "node --test tests/ecosystem.test.js"
+    "test": "node --test tests/ecosystem.test.js tests/adaptiveResolution.test.js"
   },
   "dependencies": {
     "three": "^0.180.0"

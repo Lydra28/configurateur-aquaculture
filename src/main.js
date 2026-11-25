@@ -390,6 +390,8 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight)
   composer.setSize(innerWidth, innerHeight)
   split.setSize(innerWidth, innerHeight, resolution.pixelRatio)
+  // Autre taille ou autre écran : ce que l'adaptation avait conclu ne vaut plus.
+  resolution.onResize()
 })
 
 requestAnimationFrame(() => {
