@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { fbm2D } from '../core/valueNoise.js'
 import { clamp, lerp } from '../core/math.js'
 import { FLOOR_Y, floorHeight } from './Underwater.js'
+import { RockDetail } from './RockDetail.js'
 
 /**
  * Minéral — asset pilote de la famille (référence : « granite marin.webp »).
@@ -20,7 +21,8 @@ import { FLOOR_Y, floorHeight } from './Underwater.js'
  * Budget : 4 géométries de bloc partagées (fracture par déplacement de bruit,
  * flat shading) × ~18 instances + 1 géométrie de galet × ~320 instances.
  * Matériaux Lambert : brouillard de scène et lumières globales s'appliquent
- * tout seuls — aucune plomberie shader.
+ * tout seuls ; le détail de matière (grain, strates, assise) est greffé par
+ * `RockDetail`, les caustiques par `CausticLight`.
  */
 
 /**
@@ -36,6 +38,10 @@ export const ROCK_RIDGES = [
   { x: -63, z: -46, angle: 2.1, count: 5, gap: 8 },
   { x: 24, z: -74, angle: -1.2, count: 4, gap: 7.5 },
 ]
+
+// Demi-hauteurs des géométries : `RockDetail` s'en sert pour situer l'assise.
+const BLOCK_HALF_HEIGHT = 0.36
+const PEBBLE_HALF_HEIGHT = 0.275
 
 /** LCG déterministe : mêmes roches à chaque chargement, mêmes captures. */
 function seededRandom(seed) {
@@ -71,20 +77,21 @@ function buildBlockGeometry(seed) {
   }
   geometry.computeVertexNormals()
   // La strate : légère compression verticale, comme les dalles de la référence.
-  geometry.scale(1, 0.72, 1)
+  geometry.scale(1, BLOCK_HALF_HEIGHT * 2, 1)
   return geometry.toNonIndexed() // flat shading net, facette par facette
 }
 
 /** Un galet : icosaèdre lissé puis aplati — l'ovoïde de plage classique. */
 function buildPebbleGeometry() {
   const geometry = new THREE.IcosahedronGeometry(0.5, 2)
-  geometry.scale(1, 0.55, 1.25)
+  geometry.scale(1, PEBBLE_HALF_HEIGHT * 2, 1.25)
   return geometry
 }
 
 export class Rocks {
   constructor({ blockCount = 150, pebbleCount = 650, caustics = null } = {}) {
     this.group = new THREE.Group()
+    this.detail = new RockDetail()
     const rnd = seededRandom(20260917)
 
     // --- Blocs : 4 variantes de géométrie, instanciées ------------------
@@ -150,6 +157,7 @@ export class Rocks {
       // flatShading : chaque facette attrape la lumière — sans lui, la dalle
       // fracturée redevient une masse lisse et sombre.
       const material = new THREE.MeshLambertMaterial({ flatShading: true })
+      this.detail.patch(material, { halfHeight: BLOCK_HALF_HEIGHT })
       caustics?.patch(material)
       const mesh = new THREE.InstancedMesh(geometry, material, perVariant)
       const seeds = []
@@ -179,6 +187,7 @@ export class Rocks {
     // --- Galets : un semis près des arêtes et en nappes -----------------
     const pebbleGeometry = buildPebbleGeometry()
     const pebbleMaterial = new THREE.MeshLambertMaterial({})
+    this.detail.patch(pebbleMaterial, { halfHeight: PEBBLE_HALF_HEIGHT, strata: 0 })
     caustics?.patch(pebbleMaterial)
     this.pebbles = new THREE.InstancedMesh(pebbleGeometry, pebbleMaterial, pebbleCount)
     this._pebbleColors = new Float32Array(pebbleCount * 3)

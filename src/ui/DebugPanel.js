@@ -7,7 +7,7 @@ import { WEEKS_PER_YEAR, DEFAULT_CONFIG, DEFAULT_TIMELINE } from '../state/ecosy
  * Se masque avec la touche H, et ne s'ouvre pas du tout si l'URL ne porte
  * pas `?debug` — la prod n'a pas à embarquer un panneau replié.
  */
-export function createDebugPanel(store, { onReset, grading, resolution, caustics } = {}) {
+export function createDebugPanel(store, { onReset, grading, resolution, caustics, rockDetail } = {}) {
   if (!new URLSearchParams(location.search).has('debug')) return null
 
   const gui = new GUI({ title: 'NEMO — écosystème' })
@@ -85,6 +85,14 @@ export function createDebugPanel(store, { onReset, grading, resolution, caustics
     c.add(caustics, 'gain', 0, 4, 0.05).name('Intensité')
     c.add(caustics, 'onObjects', 0, 1.5, 0.05).name('Sur les objets')
     c.add(caustics.uniforms.uCausticScale, 'value', 0.04, 0.5, 0.005).name('Échelle')
+  }
+
+  // Roches : détail de matière greffé (grain, strates, assise, relief) —
+  // 0 = coupé, image identique au décor validé.
+  if (rockDetail) {
+    const k = gui.addFolder('Roches').close()
+    k.add(rockDetail.uniforms.uRockDetail, 'value', 0, 1.5, 0.05).name('Détail')
+    k.add(rockDetail.uniforms.uRockRelief, 'value', 0, 1, 0.05).name('Relief')
   }
 
   // Étalonnage : réglage à l'œil, en direct — la case « Actif » permet la

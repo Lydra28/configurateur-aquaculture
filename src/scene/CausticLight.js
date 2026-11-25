@@ -55,7 +55,10 @@ export class CausticLight {
           vCausticPos = (modelMatrix * causticPos).xyz;`)
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
+          #ifndef NEMO_NOISE
+          #define NEMO_NOISE
           ${NOISE_GLSL}
+          #endif
           ${CAUSTICS_GLSL}
           varying vec3 vCausticPos;
           uniform float uCausticStrength;

@@ -571,3 +571,23 @@ rendu validé strictement identique.
 - Vérifié : 6/6 tests, build OK, captures headless sur le vrai GPU, aucune
   erreur console. Non vérifié : scintillement de la couche fine au loin, en
   mouvement, sur un vrai écran — réglable par « Échelle » si gênant.
+
+## 25/11/2026 — matière des roches, option « stylisé, en mieux » (Claude)
+
+Levier n°3 du plan rendu, option (a) choisie par Romain : pas de texture
+photo sur des facettes low-poly, on enrichit la matière en code. Additif et
+débrayable : « Détail » à 0 = décor validé strictement identique.
+
+- **`shaders/rockDetail.glsl.js`** : marbrure du grain + moucheture, strates
+  sombres ondulées, teinte chaude/froide tirée par bloc, flancs ramenés au
+  minéral (la vie encroûtante reste sur le dessus), assise assombrie au
+  contact du sable, micro-relief de normale sur les facettes.
+- **`scene/RockDetail.js`** : greffe sur les Lambert des blocs et des galets
+  (galets sans strates), posée AVANT celle des caustiques. Les teintes par
+  instance pilotées par l'écosystème restent la base.
+- `CausticLight.js` : bruit gardé par `#ifndef NEMO_NOISE` (deux greffes sur
+  le même matériau l'incluaient deux fois).
+- Panneau debug « Roches » : Détail (défaut 1), Relief (défaut 0,35).
+- Vérifié : 6/6 tests, build OK, captures headless avant/après sur le vrai
+  GPU, aucune erreur console. Non vérifié : coût GPU (non mesuré ; les roches
+  couvrent peu d'écran), rendu en milieu dégradé (vase), avis du groupe.
