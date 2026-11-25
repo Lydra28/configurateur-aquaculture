@@ -7,7 +7,7 @@ import { WEEKS_PER_YEAR, DEFAULT_CONFIG, DEFAULT_TIMELINE } from '../state/ecosy
  * Se masque avec la touche H, et ne s'ouvre pas du tout si l'URL ne porte
  * pas `?debug` — la prod n'a pas à embarquer un panneau replié.
  */
-export function createDebugPanel(store, { onReset, grading, resolution, caustics, rockDetail } = {}) {
+export function createDebugPanel(store, { onReset, grading, resolution, caustics, rockDetail, floor } = {}) {
   if (!new URLSearchParams(location.search).has('debug')) return null
 
   const gui = new GUI({ title: 'NEMO — écosystème' })
@@ -93,6 +93,12 @@ export function createDebugPanel(store, { onReset, grading, resolution, caustics
     const k = gui.addFolder('Roches').close()
     k.add(rockDetail.uniforms.uRockDetail, 'value', 0, 1.5, 0.05).name('Détail')
     k.add(rockDetail.uniforms.uRockRelief, 'value', 0, 1, 0.05).name('Relief')
+  }
+
+  // Fond : rides et grain du sable (normale inclinée) — 0 = coupé.
+  if (floor) {
+    gui.addFolder('Fond').close()
+      .add(floor.uFloorDetail, 'value', 0, 2, 0.05).name('Relief du sable')
   }
 
   // Étalonnage : réglage à l'œil, en direct — la case « Actif » permet la

@@ -206,7 +206,7 @@ store.subscribe((state) => {
   applyImpact(scenarioDirector.active ? mergeScenario(scenarioDirector._current) : state)
 })
 
-const panel = createDebugPanel(store, { grading, resolution, caustics: underwater.caustics, rockDetail: rocks.detail })
+const panel = createDebugPanel(store, { grading, resolution, caustics: underwater.caustics, rockDetail: rocks.detail, floor: underwater.floorUniforms })
 
 /* ------------------------------------------------------------------ */
 /* Interface                                                           */

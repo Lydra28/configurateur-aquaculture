@@ -591,3 +591,21 @@ débrayable : « Détail » à 0 = décor validé strictement identique.
 - Vérifié : 6/6 tests, build OK, captures headless avant/après sur le vrai
   GPU, aucune erreur console. Non vérifié : coût GPU (non mesuré ; les roches
   couvrent peu d'écran), rendu en milieu dégradé (vase), avis du groupe.
+
+## 25/11/2026 — micro-relief du sable (Claude)
+
+Levier n°4 du plan rendu. Additif et débrayable : « Relief du sable » à 0 =
+fond validé strictement identique.
+
+- **`scene/Underwater.js`** (shader du sol) : rides parallèles (~1,5 m de
+  longueur d'onde) tordues par un bruit large + grain bosselé, par simple
+  inclinaison de la normale — aucune géométrie. À 25 m et plus le soleil
+  filtré pèse peu face à l'ambiante : le relief est donc aussi ombré
+  directement dans l'albédo (versant au soleil clair, creux sombres).
+- Lien avec l'écosystème : la vase comble les rides (`uSediment`), un fond
+  envasé redevient lisse. Fondu entre 35 et 95 m pour ne pas fourmiller.
+- Panneau debug « Fond » : Relief du sable (défaut 1,5 ; 1 se lit à peine,
+  2 fait tissu rayé sur les captures).
+- Vérifié : 6/6 tests, build OK, captures headless coupé / 1 / 2 sur le vrai
+  GPU, aucune erreur console. Non vérifié : coût GPU (2 bruits de plus par
+  pixel de sol, non mesuré), fourmillement en mouvement, fond envasé.

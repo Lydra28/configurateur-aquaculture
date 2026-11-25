@@ -56,6 +56,7 @@ uniform float uCausticStrength;
 uniform float uCausticScale;
 uniform vec3  uCausticColor;
 uniform float uCausticTime;
+uniform float uFloorDetail;
 uniform vec3  uCameraPos;
 
 in vec3 vWorldPos;
@@ -64,6 +65,28 @@ out vec4 fragColor;
 
 void main() {
   vec3 N = normalize(vNormal);
+  float d = length(vWorldPos - uCameraPos);
+
+  // Micro-relief du sable : des rides parallèles (le courant de fond),
+  // tordues par un bruit large, plus un grain bosselé. Aucune géométrie : on
+  // incline seulement la normale. La vase les comble — un fond envasé est
+  // lisse — et elles s'effacent au loin avant de fourmiller.
+  float ripple = 0.0;
+  if (uFloorDetail > 0.0) {
+    float relief = uFloorDetail * (1.0 - 0.8 * uSediment) * (1.0 - smoothstep(35.0, 95.0, d));
+    vec3 warp = noised(vWorldPos.xz * 0.08);
+    vec2 dir = normalize(vec2(1.0, 0.35));
+    float phase = dot(vWorldPos.xz, dir) * 4.2 + warp.x * 8.0;
+    vec2 phaseGrad = dir * 4.2 + warp.yz * 0.64;
+    vec2 slope = phaseGrad * cos(phase) * 0.035 + noised(vWorldPos.xz * 1.7).yz * 0.085;
+    vec3 flatN = N;
+    N = normalize(N - vec3(slope.x, 0.0, slope.y) * relief);
+    // À 25 m et plus, le soleil filtré pèse peu face à l'ambiante : la normale
+    // seule ne se lirait pas. On ombre donc le relief directement — versant
+    // au soleil plus clair, versant opposé et creux plus sombres.
+    // Borné : au maximum du curseur, l'albédo ne doit jamais passer sous zéro.
+    ripple = clamp(2.2 * dot(N - flatN, normalize(uSunDirection)) + 0.1 * sin(phase) * relief, -0.6, 0.6);
+  }
 
   // Tapis vivant contre vase nue. La texture change autant que la couleur :
   // un fond vivant est irrégulier, un fond envasé est lisse et uniforme —
@@ -76,6 +99,7 @@ void main() {
   albedo *= 0.75 + 0.5 * mix(0.5, grain, life);
   // Le voile de sédiment recouvre tout, uniformément — c'est sa signature.
   albedo = mix(albedo, vec3(0.28, 0.26, 0.22), uSediment * 0.55);
+  albedo *= 1.0 + ripple;
 
   float diffuse = max(dot(N, normalize(uSunDirection)), 0.0) * 0.55 + 0.45;
   // Caustiques : réseau partagé avec les objets du fond (CausticLight), les
@@ -91,7 +115,6 @@ void main() {
 
   // Brouillard sous-marin : c'est lui qui donne la profondeur et qui se
   // referme quand l'eau se charge.
-  float d = length(vWorldPos - uCameraPos);
   float fog = 1.0 - exp(-uFogDensity * uFogDensity * d * d);
   color = mix(color, uWaterColor, clamp(fog, 0.0, 1.0));
 
@@ -197,6 +220,7 @@ export class Underwater {
       uCausticScale: this.caustics.uniforms.uCausticScale,
       uCausticColor: this.caustics.uniforms.uCausticColor,
       uCausticTime: this.caustics.uniforms.uCausticTime,
+      uFloorDetail: { value: 1.5 }, // micro-relief du sable ; 0 = coupé
       uCameraPos: { value: new THREE.Vector3() },
     }
     this.floor = new THREE.Mesh(
