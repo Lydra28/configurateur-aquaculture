@@ -4,6 +4,7 @@ precision highp float;
 uniform sampler2D tDiffuse;
 
 // --- étalonnage global (opère APRÈS tone mapping, en espace écran) ----
+uniform float uExposure;      // 1 = neutre ; gain appliqué à l'image finale
 uniform float uContrast;      // 1 = neutre ; pivot au gris moyen
 uniform float uSaturation;    // 1 = neutre ; via luminance perçue
 uniform float uSplitStrength; // force du virage ombres/hautes lumières
@@ -15,7 +16,7 @@ varying vec2 vUv;
 
 void main() {
   vec4 texel = texture2D(tDiffuse, vUv);
-  vec3 c = texel.rgb;
+  vec3 c = texel.rgb * uExposure;
 
   // Contraste autour du gris moyen : après ACES l'image vit déjà en 0-1,
   // le pivot 0.5 garde l'exposition générale intacte.

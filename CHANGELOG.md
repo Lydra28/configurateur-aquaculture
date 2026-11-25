@@ -650,3 +650,96 @@ l'éclat du flanc. Additif et débrayable : « Reflet » à 0 = image identique.
   banc, cages), aucune erreur console. Non vérifié : coût GPU (un `pow` par
   pixel de poisson, non mesuré), scintillement du banc en mouvement, eau
   chargée, nuit.
+
+## 25/11/2026 — étalonnage « carte postale » (Claude, choix de Romain)
+
+Choisi par Romain sur planche comparative (actuel + 3 ambiances : menthe,
+carte postale, profond). Aucun coût GPU : ce sont les réglages de la passe
+existante. Toujours débrayable (case « Actif » du dossier « Étalonnage »).
+
+- **`render/GradingPass.js`** : nouveaux défauts — contraste 1,10,
+  saturation 1,28, virage 0,55 (ombres bleues `0x30709c`, hautes lumières
+  dorées `0xb8905a`), vignettage 0,26. Anciens défauts gardés en commentaire.
+- **`shaders/grading.frag.js`** : uniform `uExposure` (gain sur l'image
+  finale, défaut 1,04) — l'exposition du renderer n'est pas touchée, le
+  rendu sans étalonnage reste donc celui d'avant.
+- Panneau debug « Étalonnage » : curseur Exposition.
+- Vérifié : 6/6 tests, build OK, luminance moyenne égale à la planche
+  choisie (155,9 contre 153,9), captures soir / matin / midi / nuit / milieu
+  dégradé à midi, aucune erreur console. Non vérifié : accord du groupe.
+
+## 25/11/2026 — forêt de kelp géant (Claude, sur références de Romain)
+
+Demande de Romain après le rejet de trois maquettes de premier plan (algues
+existantes étirées : ni réalistes ni vivantes) : de longues algues comme sur
+ses photos de forêts de kelp. Ajout au décor validé, à faire valider par le
+groupe ; débrayable (case « Visible » du dossier debug « Forêt de kelp »).
+
+- **`scene/KelpForest.js`** : 27 colonnes du fond jusque sous la surface.
+  Un plant = trois stipes qui s'enroulent + ~180 lames en rubans vrillés
+  (irrégulières, qui retombent, plus longues vers le haut) + panache ; trois
+  variantes instanciées, ~70 000 triangles au total.
+- Mouvement en vertex shader : la colonne penche et ondule (onde qui remonte
+  le stipe, amplitude croissante avec la hauteur), chaque lame flotte à sa
+  phase. Lueur de rétro-éclairage vers la surface.
+- Placement par rapport au regard (`alignToView`, même repère que les
+  cages) : plan moyen à gauche, bord droit au-delà de la dernière cage,
+  silhouettes au lointain sur toute la largeur.
+- Écosystème : le kelp vit de lumière — eau chargée ou vivant en recul, les
+  colonnes brunissent, perdent leur lueur, se raréfient.
+- Teintes : albédo tiré vers le rouge, la lumière ambiante étant cyan (un
+  doré neutre sortait vert vif).
+- Mesuré (GPU intégré AMD, 1920×1080, 4×, passe immergée) : ~+1 ms par image
+  (5,2 → 6,3 ms en moyenne de deux allers-retours).
+- Vérifié : 6/6 tests, build OK, captures soir et midi, séquence de 16 images
+  (le mouvement existe), aucune erreur console. Non vérifié : milieu dégradé,
+  nuit, écran du configurateur (son panneau couvre la moitié gauche, donc la
+  plupart des colonnes du plan moyen), accord du groupe. Espèce : le kelp
+  géant des photos n'est pas une algue bretonne — parti pris assumé.
+
+## 25/11/2026 — collerettes des cages non déformées (Claude, retour de Romain)
+
+Romain : « les cages d'aquaculture ont été déformées ». Vérifié : défaut
+ancien (identique en prod, jamais touchée), pas une régression. Les
+collerettes sont rigides dans le code ; c'est le compositeur qui étirait
+l'image émergée colonne par colonne, de la ligne d'eau jusqu'en haut — tout
+ce qui flotte se tordait avec le profil de houle (jusqu'à ±15 % de la bande).
+
+- **`render/WaterlineSplit.js`** : le monde émergé est DÉCOUPÉ par la houle,
+  plus étiré. Uniform `uAboveRigid` (1 par défaut ; 0 = ancien étirement).
+- **`camera/StaticShot.js`** : `openAboveMargin()` / `closeAboveMargin()` —
+  le temps du rendu émergé, le cadre s'ouvre de 5 % d'écran vers le bas
+  (l'image que les creux découvrent), puis se referme : cadrage, ancrages et
+  asservissement solaire raisonnent toujours sur la bande seule.
+- Monde immergé inchangé : il reste étiré jusqu'à la ligne, le haut des
+  filets suit donc la houle.
+- Panneau debug « Rendu » : case « Dessus non étiré ».
+- Vérifié : 6/6 tests, build OK, A/B aux mêmes instants (collerettes en
+  haricot avant, ellipses nettes après), ligne d'eau sans bavure, aucune
+  erreur console. Non vérifié : mer forte (tempête), redimensionnement.
+
+## 25/11/2026 — plus de vie : requin, méduses, banc de maquereaux (Claude, demande de Romain)
+
+Ajouts au décor validé, à faire valider par le groupe ; chacun se masque au
+panneau debug (dossier « Faune ajoutée »).
+
+- **`scene/Shark.js`** : un requin (silhouette de peau bleue, 7,5 m stylisés)
+  qui patrouille sur une boucle aplatie face au regard, entre 40 et 85 m.
+  Écosystème : le grand prédateur signe un milieu qui tient — quand la
+  biodiversité recule, sa boucle s'éloigne dans le voile puis il disparaît.
+- **`scene/Jellyfish.js`** : méduses translucides (ombrelle qui pulse en
+  vertex shader, tentacules en retard, dérive lente). Écosystème : la seule
+  vie qui AUGMENTE quand le milieu se dégrade — 5 en eau saine, jusqu'à 40
+  quand la santé chute. Choix narratif de Claude (pullulations liées à
+  l'eutrophisation : généralement admis, à sourcer pour le dossier).
+- **`scene/Sardines.js`** : options `seed`, `palette`, `radius`, `depth`
+  (défauts = banc validé, inchangé) ; `main.js` crée un second banc, des
+  maquereaux : 150 individus plus gros, vers 30 m de fond et 52 m de distance.
+- Mesuré (GPU intégré AMD, 2560×1440, 4×, passe immergée, 40 méduses) :
+  dans le bruit de mesure à l'affichage, moins de 0,05 ms de calcul.
+- Vérifié : 6/6 tests, build OK, captures eau saine (requin proche et loin)
+  et milieu dégradé (pullulation, requin parti), séquence animée, aucune
+  erreur console. Non vérifié : nuit, écran du configurateur, accord du
+  groupe. Limite connue : les placements relatifs au regard sont résolus une
+  fois ; quand la saison fait tourner le cap, ils se décalent avec le reste
+  du décor (comme les cages et les poissons garantis).

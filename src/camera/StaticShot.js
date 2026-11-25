@@ -138,6 +138,21 @@ export class StaticShot {
     this.update(1)
   }
 
+  /**
+   * Le temps du rendu émergé, le cadre s'ouvre vers le BAS d'une marge
+   * (fraction d'écran) : c'est l'image que le compositeur montre dans les
+   * creux de houle. Refermé aussitôt — cadrage, ancrages et asservissement
+   * solaire continuent de raisonner sur la bande seule.
+   */
+  openAboveMargin(margin) {
+    const bandHeight = innerHeight * this._aboveBand
+    this.above.setViewOffset(innerWidth, bandHeight, 0, 0, innerWidth, bandHeight + innerHeight * margin)
+  }
+
+  closeAboveMargin() {
+    this.above.clearViewOffset()
+  }
+
   resize() {
     // Chaque caméra rend SA bande d'écran : son aspect est celui de la bande,
     // pas celui de la fenêtre — c'est ce qui évite toute distorsion au recollage.

@@ -43,6 +43,8 @@ uniform float uBelowGain; // compense l'exposition unique du composite : l'œil
 uniform float uProfile[PROFILE_N]; // profil de la houle en fraction d'écran,
                                    // échantillonné sur la vraie surface (CPU)
 uniform vec3  uFoamColor; // crête d'écume — blanche saine, beige quand l'eau se charge
+uniform float uAboveMargin; // marge rendue SOUS la ligne moyenne par la caméra émergée
+uniform float uAboveRigid;  // 1 = monde émergé découpé par la houle ; 0 = étiré (ancien)
 
 in vec2 vUv;
 out vec4 fragColor;
@@ -67,13 +69,20 @@ void main() {
   uvBelow.y += smoothstep(0.05, 0.0, abs(d)) * 0.004
              * sin(uTime * 1.4 + vUv.x * 34.0);
 
-  // Chaque texture contient le rendu COMPLET de sa bande (caméra à aspect
-  // dédié) : on remappe la hauteur de bande vers [0,1] de la texture.
+  // Chaque texture contient le rendu de sa bande (caméra à aspect dédié).
   vec3 color;
   if (d > 0.0) {
-    float va = (vUv.y - line) / max(1.0 - line, 1e-3);
-    color = texture(tAbove, vec2(vUv.x, va)).rgb;
+    // Monde émergé : la texture couvre sa bande PLUS une marge sous la ligne
+    // moyenne. La houle la DÉCOUPE sans l'étirer — étirée colonne par
+    // colonne, tout ce qui flotte (collerettes des cages) se tordait avec
+    // le profil. La marge fournit l'image que les creux découvrent.
+    float band = 1.0 - uLine;
+    float v0 = uAboveMargin / (band + uAboveMargin);
+    float rigid = (vUv.y - uLine + uAboveMargin) / (band + uAboveMargin);
+    float stretched = v0 + (1.0 - v0) * (vUv.y - line) / max(1.0 - line, 1e-3);
+    color = texture(tAbove, vec2(vUv.x, mix(stretched, rigid, uAboveRigid))).rgb;
   } else {
+    // Monde immergé : étiré jusqu'à la ligne, le haut des filets suit la houle.
     float vb = uvBelow.y / max(line, 1e-3);
     color = texture(tBelow, vec2(uvBelow.x, vb)).rgb * uBelowGain;
     // La lumière entre par la surface : sans le plafond de vagues (retiré),
@@ -126,6 +135,8 @@ export class WaterlineSplit {
       uBelowGain: { value: 2.0 },
       uProfile: { value: this.profile },
       uFoamColor: { value: new THREE.Color(0.94, 0.97, 1.0) },
+      uAboveMargin: { value: PROFILE_LIMIT },
+      uAboveRigid: { value: 1 },
     }
 
     // Scène minimale que l'EffectComposer rend en première passe.

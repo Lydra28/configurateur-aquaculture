@@ -17,16 +17,18 @@ const screenColor = (hex) => new Color().setHex(hex, LinearSRGBColorSpace)
  * Réglages en direct : URL ?debug, dossier « Étalonnage ».
  */
 
-// Valeurs proposées, volontairement discrètes : ombres tirées vers le bleu
-// canard (cohérent avec la colonne d'eau), hautes lumières réchauffées
-// (soleil, écume), le tout sous le seuil où l'image « sent » le filtre.
+// Ambiance « carte postale », choisie par Romain le 25/11/2026 sur planche
+// comparative : couleurs franches, ombres tirées vers le bleu (la colonne
+// d'eau), hautes lumières dorées (soleil, écume). Réglage précédent, plus
+// discret : 1 / 1,05 / 1,08 / 0,35 / 0x3d6a78 / 0x96806a / 0,22.
 export const GRADING_DEFAULTS = {
-  contrast: 1.05,
-  saturation: 1.08,
-  splitStrength: 0.35,
-  shadowTint: 0x3d6a78,
-  highlightTint: 0x96806a,
-  vignette: 0.22,
+  exposure: 1.04,
+  contrast: 1.1,
+  saturation: 1.28,
+  splitStrength: 0.55,
+  shadowTint: 0x30709c,
+  highlightTint: 0xb8905a,
+  vignette: 0.26,
 }
 
 export class GradingPass extends ShaderPass {
@@ -34,6 +36,7 @@ export class GradingPass extends ShaderPass {
     super({
       uniforms: {
         tDiffuse: { value: null },
+        uExposure: { value: GRADING_DEFAULTS.exposure },
         uContrast: { value: GRADING_DEFAULTS.contrast },
         uSaturation: { value: GRADING_DEFAULTS.saturation },
         uSplitStrength: { value: GRADING_DEFAULTS.splitStrength },

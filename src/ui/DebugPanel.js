@@ -7,7 +7,7 @@ import { WEEKS_PER_YEAR, DEFAULT_CONFIG, DEFAULT_TIMELINE } from '../state/ecosy
  * Se masque avec la touche H, et ne s'ouvre pas du tout si l'URL ne porte
  * pas `?debug` — la prod n'a pas à embarquer un panneau replié.
  */
-export function createDebugPanel(store, { onReset, grading, resolution, caustics, rockDetail, floor, sheen } = {}) {
+export function createDebugPanel(store, { onReset, grading, resolution, caustics, rockDetail, floor, sheen, kelp, life } = {}) {
   if (!new URLSearchParams(location.search).has('debug')) return null
 
   const gui = new GUI({ title: 'NEMO — écosystème' })
@@ -78,6 +78,8 @@ export function createDebugPanel(store, { onReset, grading, resolution, caustics
       .name('Anticrénelage max').onChange((n) => resolution.setMaxSamples(n))
     r.add(resolution.split, 'fitBands').name('Rendus à la bande')
       .onChange(() => resolution.apply(resolution.pixelRatio))
+    r.add({ rigid: true }, 'rigid').name('Dessus non étiré')
+      .onChange((on) => { resolution.split.uniforms.uAboveRigid.value = on ? 1 : 0 })
   }
 
   // Caustiques : le réseau lumineux de la houle sur le fond et ses objets —
@@ -111,12 +113,28 @@ export function createDebugPanel(store, { onReset, grading, resolution, caustics
     p.add(sheen.uniforms.uSheenPower, 'value', 4, 60, 1).name('Finesse')
   }
 
+  // Forêt de kelp : la case masque toutes les colonnes (décor d'avant) ;
+  // « Mouvement » à 0 les fige, « Lueur » règle le rétro-éclairage des lames.
+  if (kelp) {
+    const k = gui.addFolder('Forêt de kelp').close()
+    k.add(kelp.group, 'visible').name('Visible')
+    k.add(kelp.uniforms.uKelpSway, 'value', 0, 2, 0.05).name('Mouvement')
+    k.add(kelp, 'glow', 0, 1.5, 0.05).name('Lueur')
+  }
+
+  // Faune ajoutée : une case par famille, pour comparer avec le décor d'avant.
+  if (life) {
+    const l = gui.addFolder('Faune ajoutée').close()
+    for (const [label, object] of Object.entries(life)) l.add(object, 'visible').name(label)
+  }
+
   // Étalonnage : réglage à l'œil, en direct — la case « Actif » permet la
   // comparaison instantanée avec le rendu validé (strictement identique).
   if (grading) {
     const g = gui.addFolder('Étalonnage').close()
     const u = grading.uniforms
     g.add(grading, 'enabled').name('Actif')
+    g.add(u.uExposure, 'value', 0.8, 1.3, 0.005).name('Exposition')
     g.add(u.uContrast, 'value', 0.9, 1.25, 0.005).name('Contraste')
     g.add(u.uSaturation, 'value', 0.7, 1.5, 0.005).name('Saturation')
     g.add(u.uSplitStrength, 'value', 0, 1, 0.01).name('Virage (force)')

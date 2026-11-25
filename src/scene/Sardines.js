@@ -31,16 +31,21 @@ function seededRandom(seed) {
   }
 }
 
-/** Sardine low-poly, tête +X, longueur 1, sections en losange. */
-function buildSardineGeometry() {
+const SARDINE_PALETTE = {
+  back: [0.05, 0.09, 0.15], flank: [0.70, 0.76, 0.80], belly: [0.86, 0.89, 0.91], fin: [0.45, 0.52, 0.56],
+}
+/** Maquereau : dos bleu-vert, flanc argenté — pour un second banc, plus gros et plus profond. */
+export const MACKEREL_PALETTE = {
+  back: [0.05, 0.22, 0.20], flank: [0.62, 0.70, 0.70], belly: [0.88, 0.90, 0.90], fin: [0.30, 0.38, 0.38],
+}
+
+/** Poisson de banc low-poly, tête +X, longueur 1, sections en losange. */
+function buildSardineGeometry(palette = SARDINE_PALETTE) {
   const positions = []
   const colors = []
   const indices = []
 
-  const BACK = [0.05, 0.09, 0.15]
-  const FLANK = [0.70, 0.76, 0.80]
-  const BELLY = [0.86, 0.89, 0.91]
-  const FIN = [0.45, 0.52, 0.56]
+  const { back: BACK, flank: FLANK, belly: BELLY, fin: FIN } = palette
 
   // stations le long du corps : [x, demi-hauteur, demi-largeur]
   const stations = [
@@ -87,8 +92,16 @@ function buildSardineGeometry() {
 }
 
 export class Sardines {
-  constructor({ count = 320, schools = 2, fishLength = 1.0, sheen = null } = {}) {
-    const rnd = seededRandom(20260919)
+  /**
+   * Les valeurs par défaut sont celles du banc de sardines validé ; `seed`,
+   * `palette`, `radius` (distance du premier banc, m) et `depth` (son cœur,
+   * m) servent à décliner un autre banc sans dupliquer le module.
+   */
+  constructor({
+    count = 320, schools = 2, fishLength = 1.0, sheen = null,
+    seed = 20260919, palette = SARDINE_PALETTE, radius = 30, depth = -9,
+  } = {}) {
+    const rnd = seededRandom(seed)
     this._fishLength = fishLength
     // créé AVANT le matériau : update() tourne dès la première frame, alors
     // que onBeforeCompile n'est appelé qu'à la première compilation du shader.
@@ -113,7 +126,7 @@ export class Sardines {
     }
     sheen?.patch(material)
 
-    this.mesh = new THREE.InstancedMesh(buildSardineGeometry(), material, count)
+    this.mesh = new THREE.InstancedMesh(buildSardineGeometry(palette), material, count)
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
     this.mesh.frustumCulled = false
 
@@ -124,8 +137,8 @@ export class Sardines {
     this._schools = []
     for (let s = 0; s < schools; s++) {
       this._schools.push({
-        radius: 30 + s * 11,
-        height: -9 - s * 6,           // profondeur du cœur du banc
+        radius: radius + s * 11,
+        height: depth - s * 6,        // profondeur du cœur du banc
         // Balayage d'ORIGINE restauré (retour Romain : les bancs confinés
         // à gauche disparaissaient derrière le panneau — il les préfère
         // visibles, quitte à croiser les cages à l'écran).

@@ -9,7 +9,10 @@ import { Ocean } from './scene/Ocean.js'
 import { Underwater, FLOOR_Y } from './scene/Underwater.js'
 import { Rocks } from './scene/Rocks.js'
 import { Flora } from './scene/Flora.js'
-import { Sardines } from './scene/Sardines.js'
+import { KelpForest } from './scene/KelpForest.js'
+import { Sardines, MACKEREL_PALETTE } from './scene/Sardines.js'
+import { Shark } from './scene/Shark.js'
+import { Jellyfish } from './scene/Jellyfish.js'
 import { FixedLife } from './scene/FixedLife.js'
 import { DemersalFish } from './scene/DemersalFish.js'
 import { FarmCages } from './scene/FarmCages.js'
@@ -71,8 +74,25 @@ underwater.group.add(rocks.group) // hérite du masquage par passe
 const flora = new Flora({ caustics: underwater.caustics })
 underwater.group.add(flora.group)
 
+// Forêt de kelp géant : colonnes du fond à la surface, plantées par rapport au regard.
+const kelp = new KelpForest()
+underwater.group.add(kelp.group)
+
 const sardines = new Sardines({ sheen: underwater.sheen })
 underwater.group.add(sardines.mesh)
+
+// Second banc : maquereaux, plus gros, plus profonds, plus au large.
+const mackerel = new Sardines({
+  count: 150, schools: 1, fishLength: 1.5, seed: 20261126,
+  palette: MACKEREL_PALETTE, radius: 52, depth: -30, sheen: underwater.sheen,
+})
+underwater.group.add(mackerel.mesh)
+
+// Un requin qui patrouille au large, et des méduses en pleine eau.
+const shark = new Shark({ sheen: underwater.sheen })
+underwater.group.add(shark.group)
+const jellyfish = new Jellyfish()
+underwater.group.add(jellyfish.mesh)
 
 const fixedLife = new FixedLife({ caustics: underwater.caustics })
 underwater.group.add(fixedLife.group)
@@ -155,7 +175,11 @@ function applyImpact(state) {
   underwater.applyEcosystem(state)
   rocks.applyEcosystem(state)
   flora.applyEcosystem(state)
+  kelp.applyEcosystem(state)
   sardines.applyEcosystem(state)
+  mackerel.applyEcosystem(state)
+  shark.applyEcosystem(state)
+  jellyfish.applyEcosystem(state)
   fixedLife.applyEcosystem(state)
   demersals.applyEcosystem(state)
   cagedFish.applyEcosystem(state)
@@ -206,7 +230,9 @@ store.subscribe((state) => {
   applyImpact(scenarioDirector.active ? mergeScenario(scenarioDirector._current) : state)
 })
 
-const panel = createDebugPanel(store, { grading, resolution, caustics: underwater.caustics, rockDetail: rocks.detail, floor: underwater.floorUniforms, sheen: underwater.sheen })
+const panel = createDebugPanel(store, { grading, resolution, caustics: underwater.caustics, rockDetail: rocks.detail, floor: underwater.floorUniforms, sheen: underwater.sheen, kelp,
+  life: { 'Banc de maquereaux': mackerel.mesh, Requin: shark.group, 'Méduses': jellyfish.mesh },
+})
 
 /* ------------------------------------------------------------------ */
 /* Interface                                                           */
@@ -284,8 +310,10 @@ function renderAbove() {
   ambientLight.color.copy(SURFACE_AMBIENT)
   ambientLight.intensity = 0.9
   ocean.update(elapsed, shot.above)
+  shot.openAboveMargin(PROFILE_LIMIT)
   renderer.setRenderTarget(split.rtAbove)
   renderer.render(scene, shot.above)
+  shot.closeAboveMargin()
 }
 
 function renderBelow() {
@@ -324,7 +352,11 @@ function frame() {
   sky.update(renderer)
   underwater.update(elapsed, shot.below, sky, resolution.pixelRatio)
   flora.update(elapsed)
+  kelp.update(elapsed, underwater.lightColor, underwater.ambientColor)
   sardines.update(dt, elapsed, shot.heading)
+  mackerel.update(dt, elapsed, shot.heading)
+  shark.update(dt, elapsed, shot.heading)
+  jellyfish.update(dt, elapsed, shot.heading, shot.below, underwater.ambientColor)
   demersals.update(dt, elapsed, shot.heading)
   farm.update(dt, elapsed, ocean)
   cagedFish.update(dt, elapsed)
@@ -367,6 +399,7 @@ requestAnimationFrame(() => {
   // Présence garantie : un contingent de vie fixe est replacé dans le champ,
   // maintenant que le cap est verrouillé.
   fixedLife.alignToView(shot.heading, shot.below)
+  kelp.alignToView(shot.heading)
   farm.alignToView(shot.heading, shot.below, shot.above)
   frame()
   document.getElementById('loader')?.classList.add('done')
@@ -380,7 +413,7 @@ window.NEMO = {
   get state() { return store.derived },
   /** Accès direct aux objets de scène — réglage, tests, captures de référence. */
   three: {
-    scene, renderer, sky, ocean, underwater, rocks, flora, sardines, fixedLife, demersals, farm, cagedFish, farmWaste, shafts, bubbles,
+    scene, renderer, sky, ocean, underwater, rocks, flora, kelp, sardines, mackerel, shark, jellyfish, fixedLife, demersals, farm, cagedFish, farmWaste, shafts, bubbles,
     shot, split, composer, grading, resolution,
     // Compat : « la caméra » par défaut est celle du monde submergé.
     get camera() { return shot.below },
