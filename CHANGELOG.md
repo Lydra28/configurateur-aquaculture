@@ -772,3 +772,37 @@ qualité (~46 images/s), or l'échelle ne descendait que sous 32 images/s.
   éclaircir se verrait pour un gain marginal.
 - Vérifié : 16/16 tests, build OK. Non vérifié : vrai écran 240 Hz de Romain
   (mesures en Chrome headless sur le même GPU), autres machines du groupe.
+
+## 26/11/2026 — barème du configurateur inversé et rendu cohérent (Claude, décision de Romain)
+
+Constat de Romain : « les préconfigurations ont moins d'impact que des
+variables seules ». Chiffré : une composante non choisie valait « parfait »
+pour le décor mais 0 point pour le score — « rejet direct » seul affichait
+4/100, pire que le pire scénario complet (23/100), et FREA (61/100, 5 choix)
+avait une eau plus claire qu'une variable seule.
+
+- **Sens du score inversé** : c'est désormais un score d'IMPACT, 0 = tout va
+  bien, 100 = tout va mal. Niveaux 0-30 Préservé / 31-60 Fragile / 61+
+  Dégradé (miroir des anciens seuils). Renverse la règle « préservation, ne
+  jamais inverser » — décision explicite de Romain, SKILL.md mis à jour.
+- **`state/scenario.js`** : chaque composante va de 0 (meilleure option,
+  AUCUN effet visuel) à 20 (pire option) ; une composante non choisie vaut la
+  meilleure, pour le score comme pour le décor ; options intermédiaires
+  recalées (points : 10 / 13 / 11 / 8 / 10 ; canaux visuels remis à
+  proportion). Le score va réellement de 0 à 100 (avant : 23 à 98).
+- Fermes réelles, en impact : L'Esturgeonnière 53, FREA 48, Atlantic
+  Sapphire 60 — même classement qu'avant, toutes « Fragile ».
+- **`ui/configurator.js`** : seuils des niveaux, titre du panneau « Impact
+  estimé sur l'écosystème », niveau affiché dès le premier choix.
+- **`tests/scenario.test.js`** : 9 règles verrouillées sur les 243 fermes
+  possibles (0 au mieux et milieu intact, 100 au pire, non choisi = au mieux,
+  aggraver ne fait jamais baisser le score ni s'améliorer le milieu, une
+  ferme réelle pèse au moins autant que chacune de ses variables, corrélation
+  score / décor > 0,9, détail par critère = score).
+- Vérifié : 25/25 tests, build OK, écran du configurateur dans la vraie page
+  (départ —, « rejet direct » 20 Préservé, FREA 48 Fragile, tout au pire 100
+  Dégradé, critères 25/20/20/15/12/8 au maximum). Non vérifié : accord du
+  groupe sur les nouveaux points et le libellé du panneau (les documents
+  `composantes.md` / `wording-parcours.md` font foi et ne sont pas à jour).
+  Reste ouvert : sans choix d'échelle, le décor montre 3 cages pleines, donc
+  une ferme « locale » (1 cage) paraît plus petite qu'une variable seule.

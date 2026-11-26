@@ -1,5 +1,5 @@
 import './configurator.css'
-import { PRESETS, projectCriteria } from '../state/scenario.js'
+import { PRESETS, projectCriteria, impactTier } from '../state/scenario.js'
 
 /**
  * UI de l'ÉCRAN F — le panneau de configuration et le panneau impact,
@@ -10,9 +10,9 @@ import { PRESETS, projectCriteria } from '../state/scenario.js'
  * Textes : wording-parcours.md fait foi pour les libellés (titres de
  * question), composantes.md pour les textes d'aide (effets visuels),
  * la maquette pour les pills de rubrique. Décisions Romain : pas de
- * champ recherche en V1 ; sens du score = PRÉSERVATION (libellé du
- * panneau adapté : niveaux Préservé / Fragile / Dégradé, seuils
- * 70+ / 40-69 / <40).
+ * champ recherche en V1 ; sens du score = IMPACT depuis le 26/11/2026
+ * (0 = tout va bien, 100 = tout va mal) : niveaux Préservé / Fragile /
+ * Dégradé, seuils 0-30 / 31-60 / 61+ (miroir des anciens 70+ / 40-69 / <40).
  *
  * Écrans G et H-1 (maquettes « screen G » / « screen H-1 ») :
  * « Consulter le score final » replie le configurateur (F→G) — barre
@@ -92,12 +92,7 @@ const PROFILE_CARDS = [
   { key: 'atlanticSapphire', title: 'Atlantic Sapphire', subtitle: 'Saumons · circuit fermé' },
 ]
 
-/** Niveau (sens préservation) — seuils du wording : 70+ / 40-69 / <40. */
-function tierLabel(score) {
-  if (score >= 70) return 'Préservé'
-  if (score >= 40) return 'Fragile'
-  return 'Dégradé'
-}
+const tierLabel = impactTier
 
 function presetScore(key) {
   return Object.entries(PRESETS[key].choices).reduce((sum, [componentKey, optionId]) =>
@@ -160,14 +155,15 @@ export function mountConfigurator() {
     </div>`
   document.body.appendChild(panel)
 
-  // scores réels des cartes profils — jauge Figma : paliers ATTEINTS en
+  // scores réels des cartes profils — jauge Figma : paliers d'IMPACT atteints
+  // (plus la jauge est remplie, plus la ferme pèse sur le milieu), en
   // dégradé croissant (18/32/50/72 %), non-atteints éteints (12 %)
   const CARD_STEPS = [0.18, 0.32, 0.5, 0.72]
   panel.querySelectorAll('.cfg-card').forEach((card) => {
     const score = presetScore(card.dataset.preset)
     card.querySelector('[data-card-score]').innerHTML =
       `${score}<small>/100 · ${tierLabel(score)}</small>`
-    const reached = Math.max(1, Math.ceil(score / 20))
+    const reached = Math.ceil(score / 20)
     card.querySelectorAll('[data-card-gauge] span').forEach((segment, i) => {
       // dégradé réparti sur les paliers atteints, culminant à 72 %
       const t = reached > 1 ? i / (reached - 1) : 1
@@ -185,7 +181,7 @@ export function mountConfigurator() {
     <button type="button" class="impact-header" aria-expanded="false">
       <span class="impact-header-left">
         <span class="impact-chevron">${ICONS.chevron}</span>
-        <span class="cfg-overline">État estimé de l'écosystème</span>
+        <span class="cfg-overline">Impact estimé sur l'écosystème</span>
       </span>
       <span class="impact-mini-score"><span class="odo" data-mini-score>—</span><small>/100</small></span>
     </button>
@@ -314,7 +310,9 @@ export function mountConfigurator() {
     // score en odomètre (— tant qu'aucun choix)
     odometer(scoreBox, done ? score : null)
     odometer(miniBox, done ? score : null)
-    impact.querySelector('[data-tier]').textContent = done === 5 ? tierLabel(score) : done ? '…' : ''
+    // Le score décrit une ferme complète dès le premier choix (le reste vaut
+    // « au mieux ») : le niveau s'affiche donc tout de suite.
+    impact.querySelector('[data-tier]').textContent = done ? tierLabel(score) : ''
 
     // jauge : dégradé de fond, palier courant contouré et boosté
     const currentStep = done ? Math.min(4, Math.floor(score / 20)) : -1

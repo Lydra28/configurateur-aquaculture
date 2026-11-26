@@ -3,7 +3,10 @@ import { clamp, lerp } from '../core/math.js'
 /**
  * Couche SCÉNARIO du configurateur — traduit les 5 choix de l'utilisateur
  * (fichiers « composantes.md » / « wording-parcours.md ») en :
- * - un SCORE /100 (somme des 5 barèmes /20 — bornes réelles 23..100) ;
+ * - un SCORE D'IMPACT /100 (somme des 5 barèmes /20) : 0 = tout va bien,
+ *   100 = tout va mal. Sens inversé le 26/11/2026 à la demande de Romain
+ *   (l'ancien score de préservation rendait les états partiels incohérents :
+ *   une variable seule affichait 4/100, pire que le pire scénario) ;
  * - des CIBLES visuelles pour le décor, exprimées dans les grandeurs que
  *   les applyEcosystem de la scène consomment déjà (turbidity, sediment,
  *   bloom, health, biodiversity, oxygen…) + trois commandes propres à la
@@ -15,9 +18,20 @@ import { clamp, lerp } from '../core/math.js'
  * sa cible par lissage exponentiel — le décor « répond » au choix au lieu
  * de sauter.
  *
- * CALIBRAGE : tout le barème visuel est dans OPTIONS ci-dessous (canaux
- * 0..1 par option, sommés par canal puis projetés) — c'est LE fichier que
- * le groupe retouche pour ajuster l'impact perçu de chaque choix.
+ * CALIBRAGE : tout le barème est dans COMPONENTS ci-dessous (points
+ * d'impact et canaux visuels 0..1 par option, sommés puis projetés) — c'est
+ * LE fichier que le groupe retouche pour ajuster l'impact de chaque choix.
+ *
+ * RÈGLES DE COHÉRENCE (verrouillées par tests/scenario.test.js) :
+ * - dans chaque composante : la meilleure option vaut 0 point et n'a AUCUN
+ *   effet visuel, la pire vaut 20 points ;
+ * - une composante non choisie vaut la meilleure option, pour le score
+ *   comme pour le décor : le score décrit toujours une ferme complète.
+ *   Seule exception : la TAILLE de la ferme — sans choix d'échelle, le
+ *   décor d'arrivée validé garde ses 3 cages (densité 0,55) ;
+ * - ajouter ou aggraver un choix ne fait jamais baisser le score ni
+ *   s'améliorer le milieu — une ferme réelle (5 choix) pèse donc toujours
+ *   au moins autant que n'importe laquelle de ses variables prise seule.
  */
 
 // Canaux d'impact (0..1, sommés puis bornés) :
@@ -31,9 +45,9 @@ export const COMPONENTS = {
       // density = fraction du cheptel MAXIMUM de l'espèce, réparti sur les
       // cages présentes — contraste net voulu : ~15 poissons (1 cage),
       // ~30/cage (2 cages), ~50/cage (3 cages)
-      locale: { score: 20, cages: 1, density: 0.1, sed: 0.05 },
-      nationale: { score: 12, cages: 2, density: 0.4, sed: 0.15, turb: 0.05, stress: 0.05 },
-      continentale: { score: 4, cages: 3, density: 1.0, sed: 0.3, turb: 0.12, stress: 0.12 },
+      locale: { impact: 0, cages: 1, density: 0.1 },
+      nationale: { impact: 10, cages: 2, density: 0.4, sed: 0.15, turb: 0.06, stress: 0.06 },
+      continentale: { impact: 20, cages: 3, density: 1.0, sed: 0.3, turb: 0.12, stress: 0.12 },
     },
   },
   methode: {
@@ -41,35 +55,42 @@ export const COMPONENTS = {
     options: {
       // décision Romain : la différence se raconte par la turbidité seule,
       // les cages restent à l'écran quel que soit le mode
-      cagesOuvertes: { score: 6, turb: 0.3, waste: 0.25, stress: 0.1 },
-      eauRejetee: { score: 10, turb: 0.12, stress: 0.05 },
-      eauBoucle: { score: 18, turb: 0.02 },
+      cagesOuvertes: { impact: 20, turb: 0.3, waste: 0.25, stress: 0.1 },
+      eauRejetee: { impact: 13, turb: 0.2, waste: 0.1, stress: 0.065 },
+      eauBoucle: { impact: 0 },
     },
   },
   alimentation: {
     label: 'Alimentation',
     options: {
-      farine: { score: 5, waste: 0.5, sed: 0.25, turb: 0.1, stress: 0.1 },
-      soja: { score: 12, waste: 0.25, sed: 0.12, bloom: 0.25, stress: 0.05 },
-      insectes: { score: 20, waste: 0.05 },
+      farine: { impact: 20, waste: 0.5, sed: 0.25, turb: 0.1, stress: 0.1 },
+      soja: { impact: 11, waste: 0.25, sed: 0.12, bloom: 0.25, stress: 0.055 },
+      insectes: { impact: 0 },
     },
   },
   eauxUsees: {
     label: 'Eaux usées',
     options: {
-      rejetDirect: { score: 4, turb: 0.3, bloom: 0.3, sed: 0.15, waste: 0.2, stress: 0.2 },
-      traitee: { score: 14, turb: 0.08, bloom: 0.15, stress: 0.05 },
-      enfouie: { score: 20, turb: 0.02 },
+      rejetDirect: { impact: 20, turb: 0.3, bloom: 0.3, sed: 0.15, waste: 0.2, stress: 0.2 },
+      traitee: { impact: 8, turb: 0.12, bloom: 0.12, sed: 0.06, waste: 0.08, stress: 0.08 },
+      enfouie: { impact: 0 },
     },
   },
   energie: {
     label: 'Énergie',
     options: {
-      peuMachines: { score: 20 },
-      continu: { score: 12, bloom: 0.12, stress: 0.06 },
-      artificiel: { score: 4, bloom: 0.4, turb: 0.08, stress: 0.2 },
+      peuMachines: { impact: 0 },
+      continu: { impact: 10, bloom: 0.2, turb: 0.04, stress: 0.1 },
+      artificiel: { impact: 20, bloom: 0.4, turb: 0.08, stress: 0.2 },
     },
   },
+}
+
+/** Niveau lu sur le score d'impact — miroir des seuils du wording (70+ / 40-69 / <40 en préservation). */
+export function impactTier(score) {
+  if (score <= 30) return 'Préservé'
+  if (score <= 60) return 'Fragile'
+  return 'Dégradé'
 }
 
 /** Préréglages des fermes réelles (écran D) — espèce comprise. */
@@ -91,7 +112,7 @@ export const PRESETS = {
 /**
  * DÉTAIL DE LA NOTATION (Panneau Impact) — projection des 5 composantes
  * (/20 chacune) sur les 6 critères pondérés de la maquette. Chaque LIGNE
- * de la matrice somme à 20 (la composante distribue tout son score),
+ * de la matrice somme à 20 (la composante distribue tout son impact),
  * chaque COLONNE somme au poids du critère (25/20/20/15/12/8 = 100) : le
  * total du détail est donc EXACTEMENT le score global. Matrice réglable
  * par le groupe.
@@ -125,8 +146,8 @@ export function projectCriteria(choices = {}) {
   for (const [key, component] of Object.entries(COMPONENTS)) {
     const option = component.options[choices[key]]
     if (!option) continue
-    score += option.score
-    const weight = option.score / 20
+    score += option.impact
+    const weight = option.impact / 20
     CRITERIA_MATRIX[key].forEach((points, i) => { values[i] += weight * points })
   }
   const floors = values.map(Math.floor)
@@ -137,13 +158,14 @@ export function projectCriteria(choices = {}) {
 }
 
 /**
- * Résout un jeu de choix (partiel accepté : les composantes absentes sont
- * neutres) → { score, scoreMax, targets }.
+ * Résout un jeu de choix (partiel accepté : une composante absente vaut sa
+ * meilleure option, 0 point et aucun effet) → { score, scoreMax, targets }.
+ * `score` est l'impact /100 ; `scoreMax` vaut toujours 100.
  */
 export function resolveScenario(choices = {}) {
   const sums = { turb: 0, sed: 0, bloom: 0, stress: 0, waste: 0 }
   let score = 0
-  let scoreMax = 0
+  const scoreMax = 100
   let cages = 3      // défaut décor validé : les 3 cages
   let density = 0.55 // défaut décor validé : densité saine
   for (const [key, component] of Object.entries(COMPONENTS)) {
@@ -151,8 +173,7 @@ export function resolveScenario(choices = {}) {
     if (!choice) continue
     const option = component.options[choice]
     if (!option) continue
-    score += option.score
-    scoreMax += 20
+    score += option.impact
     for (const canal of Object.keys(sums)) sums[canal] += option[canal] ?? 0
     if (option.cages !== undefined) cages = option.cages
     if (option.density !== undefined) density = option.density
@@ -197,7 +218,7 @@ export class ScenarioDirector {
     this._target = null
     this._choices = {}
     this.score = 0
-    this.scoreMax = 0
+    this.scoreMax = 100
     this.onScore = null
   }
 
@@ -227,10 +248,10 @@ export class ScenarioDirector {
     this._species = null
     const { targets } = resolveScenario({})
     this.score = 0
-    this.scoreMax = 0
+    this.scoreMax = 100
     this._target = { ...targets, species: null }
     if (!this._current) this._current = { ...this._target }
-    this.onScore?.(0, 0)
+    this.onScore?.(0, 100)
   }
 
   get choices() { return { ...this._choices } }
