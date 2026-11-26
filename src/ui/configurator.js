@@ -7,9 +7,9 @@ import { PRESETS, projectCriteria, impactTier } from '../state/scenario.js'
  * NEMO.scenario. Vanilla JS : le DOM est construit une fois, seuls le
  * score, les jauges et les états sélectionnés changent ensuite.
  *
- * Textes : wording-parcours.md fait foi pour les libellés (titres de
- * question), composantes.md pour les textes d'aide (effets visuels),
- * la maquette pour les pills de rubrique. Décisions Romain : pas de
+ * Textes : wording-parcours.md pour les libellés d'origine, revus avec les
+ * aides par l'audit du 26/11/2026 (voir SECTIONS) ; la maquette pour les
+ * pills de rubrique. Décisions Romain : pas de
  * champ recherche en V1 ; sens du score = IMPACT depuis le 26/11/2026
  * (0 = tout va bien, 100 = tout va mal) : niveaux Préservé / Fragile /
  * Dégradé, seuils 0-30 / 31-60 / 61+ (miroir des anciens 70+ / 40-69 / <40).
@@ -36,56 +36,61 @@ const ICONS = {
   panel: `<svg width="16" height="13" viewBox="17 18.5 16 13" fill="none"><path d="M19 19H22.3662V31H19C18.1716 31 17.5 30.3284 17.5 29.5V20.5C17.5 19.6716 18.1716 19 19 19ZM31 19C31.8284 19 32.5 19.6716 32.5 20.5V29.5C32.5 30.3284 31.8284 31 31 31H23.3662V19H31Z" stroke="white"/></svg>`,
 }
 
-/* Contenu — wording-parcours.md (libellés) + composantes.md (aides) */
+/* Contenu — libellés d'après wording-parcours.md, variables revues par
+   l'audit du 26/11/2026 (fusion Méthode + Eaux usées, ajout Santé). Règle
+   des aides : ne décrire que ce que le décor montre VRAIMENT (mesuré sur
+   scenario.js), et la meilleure option comme « la meilleure », jamais
+   comme « sans effet ». Clés et ids = ceux de COMPONENTS. */
 const SECTIONS = [
   {
     key: 'echelle', pill: 'Échelle de production', icon: 'echelle',
-    question: 'Combien de poissons produisez-vous ?',
+    question: 'Combien de poissons produisez-vous ?',
     options: [
-      { id: 'locale', label: 'Échelle régionale ou locale : quelques tonnes par an', help: 'Un seul petit bassin/filet, faible densité de poissons.' },
-      { id: 'nationale', label: 'Échelle nationale : quelques milliers de tonnes par an', help: 'Plusieurs bassins/filets, densité modérée.' },
-      { id: 'continentale', label: 'Échelle continentale : plusieurs milliers de tonnes par an', help: 'Filets/bassins multiples occupant une large zone, très forte densité de poissons.' },
+      { id: 'locale', label: 'Moins de 1 000 tonnes par an', help: 'Une seule cage, peu de poissons. La meilleure option.' },
+      { id: 'nationale', label: 'De 1 000 à 10 000 tonnes par an', help: 'Deux cages, densité modérée, un dépôt commence sous la ferme.' },
+      { id: 'continentale', label: 'Plus de 10 000 tonnes par an', help: 'Trois cages pleines, fond chargé de dépôts sous la ferme.' },
     ],
   },
   {
-    key: 'methode', pill: "Méthode d'élevage", icon: 'elevage',
-    question: 'Où et comment vivent vos poissons ?',
+    key: 'rejets', pill: 'Élevage et rejets', icon: 'eaux',
+    question: 'Où vivent vos poissons, et où va leur eau ?',
     options: [
-      { id: 'cagesOuvertes', label: 'En pleine mer, dans des cages ouvertes', help: "Filets visibles en pleine eau, eau trouble autour des cages (particules de nourriture/déchets)." },
-      { id: 'eauRejetee', label: "Sur terre, avec de l'eau puisée puis rejetée en continu", help: "Rejet visible en continu, légère baisse d'opacité près du point de rejet." },
-      { id: 'eauBoucle', label: "Sur terre, avec de l'eau filtrée et réutilisée en boucle", help: "Peu d'effet visible dans le milieu ouvert, eau alentour presque inchangée." },
+      { id: 'cagesOuvertes', label: 'En mer, dans des cages ouvertes', help: 'Tout part en mer : eau trouble et verdâtre, lumière et herbiers qui reculent, granulés.' },
+      { id: 'rejetFiltre', label: 'À terre, eau filtrée puis rendue à la nature', help: 'Une partie des rejets est retenue : eau un peu trouble, quelques granulés.' },
+      { id: 'circuitFerme', label: "À terre, en circuit fermé : l'eau filtrée est réutilisée", help: 'La meilleure option pour la mer. Les boues restent à gérer à terre.' },
     ],
   },
   {
     key: 'alimentation', pill: 'Alimentation', icon: 'alimentation',
-    question: 'Que mangent vos poissons ?',
+    question: 'Que mangent vos poissons ?',
     options: [
-      { id: 'farine', label: 'Farine de poisson sauvage', help: 'Nourriture non consommée qui se dépose au fond, particules organiques visibles.' },
-      { id: 'soja', label: 'Alimentation végétale (soja)', help: "Résidus qui enrichissent l'eau en nutriments, léger début de prolifération d'algues." },
-      { id: 'insectes', label: "Alimentation à base d'insectes ou d'algues", help: 'Peu de résidus, eau et algues presque inchangées.' },
+      { id: 'farine', label: 'Farine et huile de poissons sauvages', help: 'Des poissons sauvages pêchés pour nourrir l’élevage : vie marine affaiblie, granulés, vase au fond.' },
+      { id: 'soja', label: 'Surtout végétale (soja)', help: 'Moins de pêche, mais un phosphore mal digéré enrichit l’eau : elle verdit.' },
+      { id: 'insectes', label: "À base d'insectes ou d'algues", help: 'La meilleure option pour la mer. Leur bilan carbone reste discuté.' },
     ],
   },
   {
-    key: 'eauxUsees', pill: 'État des eaux', icon: 'eaux',
-    question: 'Où vont les eaux usées de votre exploitation ?',
+    key: 'sante', pill: 'Santé et parasites', icon: 'elevage',
+    question: 'Comment soignez-vous vos poissons ?',
     options: [
-      { id: 'rejetDirect', label: 'Rejetée directement dans la nature', help: 'Eau qui se trouble et change de couleur, particules visibles.' },
-      { id: 'traitee', label: 'Traitée, puis rejetée localement', help: "Légère baisse d'opacité, teinte presque inchangée." },
-      { id: 'enfouie', label: 'Enfouie très profondément dans le sol', help: 'Eau de surface quasi inchangée localement.' },
+      { id: 'chimique', label: 'Traitements chimiques et antibiotiques réguliers', help: 'Résidus au fond, vie sauvage affaiblie autour de la ferme, neige marine plus dense.' },
+      { id: 'soinsMecaniques', label: 'Soins sans médicaments, mais pertes fréquentes', help: 'Manipulations et poissons morts : vie autour de la ferme un peu affaiblie.' },
+      { id: 'prevention', label: 'Prévention : densité modérée, surveillance', help: 'La meilleure option : peu de traitements, peu de pertes.' },
     ],
   },
   {
     key: 'energie', pill: 'Fonctionnement du site', icon: 'site',
-    question: 'De quoi votre site a-t-il besoin pour fonctionner ?',
+    question: 'De quoi votre site a-t-il besoin pour fonctionner ?',
     options: [
-      { id: 'peuMachines', label: 'Peu de machines', help: 'Algues en bon état, pas de changement thermique visible.' },
-      { id: 'continu', label: 'Des machines en fonctionnement continu', help: 'Algues légèrement affectées, début de prolifération.' },
-      { id: 'artificiel', label: 'Un fonctionnement presque entièrement artificiel', help: "Prolifération ou dépérissement visible des algues, changement net de couleur de l'eau." },
+      { id: 'peuMachines', label: 'Peu de machines', help: 'La meilleure option : peu d’électricité, peu d’émissions.' },
+      { id: 'continu', label: 'Des machines en fonctionnement continu', help: 'Les émissions réchauffent l’océan entier ; le décor le montre par une vie un peu plus fragile.' },
+      { id: 'artificiel', label: 'Un fonctionnement presque entièrement artificiel', help: 'Émissions lourdes, pour tout l’océan ; le décor les montre par une vie fragilisée et une eau qui verdit.' },
     ],
   },
 ]
 
-/* Cartes des fermes réelles — scores du barème composantes.md */
+/* Cartes des fermes réelles — choix sourcés ou hypothèses (voir PRESETS) :
+   la carte le dit par une mention « estimation ». */
 const PROFILE_CARDS = [
   { key: 'esturgeonniere', title: "L'Esturgeonnière", subtitle: 'Esturgeons · bassins à terre' },
   { key: 'frea', title: 'FREA', subtitle: 'Truites · circuit fermé' },
@@ -140,6 +145,7 @@ export function mountConfigurator() {
             <span>
               <p class="cfg-card-title">${card.title}</p>
               <p class="cfg-card-subtitle">${card.subtitle}</p>
+              <p class="cfg-card-note">Estimation d'après sources publiques</p>
             </span>
             <span>
               <span class="cfg-card-score" data-card-score></span>

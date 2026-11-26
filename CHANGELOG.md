@@ -806,3 +806,103 @@ avait une eau plus claire qu'une variable seule.
   `composantes.md` / `wording-parcours.md` font foi et ne sont pas à jour).
   Reste ouvert : sans choix d'échelle, le décor montre 3 cages pleines, donc
   une ferme « locale » (1 cage) paraît plus petite qu'une variable seule.
+
+## 26/11/2026 — variables du configurateur revues d'après l'audit (Claude, validé par Romain)
+
+Constat de Romain : variables incohérentes entre elles, et il en manque par
+rapport à l'aquaculture réelle. Audit sourcé :
+`references/2026-11-26-audit-variables.md` du projet (hors de ce dépôt).
+Tableau B de l'audit appliqué ; les modules du décor ne changent pas.
+
+- **Variables** (`state/scenario.js`) : « Méthode » et « Eaux usées »
+  fusionnées en **« Élevage et rejets »** (en cage ouverte, tout part en mer :
+  la combinaison « cages + eaux enfouies » n'existe plus) ; **« Santé et
+  parasites »** ajoutée (alimente enfin le critère « Pression sanitaire ») ;
+  Alimentation recadrée sur l'origine des ingrédients ; Énergie recadrée sur
+  le climat. Points : 0/10/20, 20/12/0, 20/11/0, 20/10/0, 0/10/20.
+- **Canaux rééquilibrés** : 20 points ≈ 1,0 de dégât visible pour chaque
+  variable (avant : 0,77 à 1,58) ; aucun canal ne sature, même au pire
+  (avant : 49 fermes sur 243 avaient la même eau, plafond de turbidité).
+  `TURBIDITY_BASE` / `TURBIDITY_CAP` exportés pour les tests.
+- **Matrice des critères** recalée ; critère « Bilan carbone · aliment,
+  énergie » (au lieu de « transport »).
+- **Fermes réelles** : `PRESETS` déplacé dans `state/presets.js` (ré-exporté
+  par `scenario.js`, imports inchangés ; `scenario.js` repasse à 300 lignes),
+  chaque choix sourcé ou marqué « hypothèse » ; L'Esturgeonnière n'est plus en « rejet direct » (contredit par
+  The Fish Site, 2023) ; Atlantic Sapphire notée sur sa production réelle
+  (5 096 t en 2025). Notes : L'Esturgeonnière 42, FREA 40, Atlantic
+  Sapphire 51 (avant 53 / 48 / 60), toutes « Fragile ». Cartes : mention
+  « Estimation d'après sources publiques » (`ui/configurator.css`).
+- **Textes** (`ui/configurator.js`) : questions, libellés et aides réécrits
+  pour ne décrire que ce que le décor montre (plus de « prolifération
+  d'algues » sous l'eau ni de « changement thermique » ; « la meilleure
+  option » au lieu de « sans effet ») ; échelle en tranches de tonnage
+  (< 1 000 t, 1 000-10 000 t, > 10 000 t) ; espaces insécables avant « ? ».
+  Icônes : « eaux » pour Élevage et rejets, « elevage » pour Santé.
+- **Méduses** (`scene/Jellyfish.js`, commentaire seulement) : « peuvent
+  proliférer localement », lien plausible mais débattu, sources citées.
+- **Tests** (`tests/scenario.test.js`) : 9 règles inchangées + 3 nouvelles
+  (option existante dans chaque préréglage ; à points égaux, dégât visible
+  à ±15 % de la moyenne ; aucun canal au plafond, même au pire).
+- Canaux orphelins laissés en place, signalés : `nutrientLevel`
+  (`state/scenario.js`) et `algaeHue` (`main.js`) ne sont lus par aucun
+  module du décor.
+- Vérifié : 28/28 tests, build OK, vraie page à 1440 × 900 (départ —,
+  « cages ouvertes » seule 20 Préservé, les 3 fermes 42 / 40 / 51 Fragile,
+  tout au pire 100 Dégradé et critères au maximum, console sans erreur) ;
+  cartes en 375 × 812 (mention lisible, pas de défilement horizontal) ;
+  revue par le rôle `relecteur` : 4 remarques mineures, 3 traitées, la
+  dernière reportée (`ui/configurator.js` dépassait déjà 300 lignes avant ce
+  changement : extraire `SECTIONS` dans une passe à part).
+  Non vérifié : accord du groupe sur les textes, les tranches de tonnage et
+  les choix « hypothèse » des fermes ; maquette Figma (nouvelle section
+  Santé, nouveaux libellés) ; `composantes.md` / `wording-parcours.md` pas à
+  jour.
+
+## 26/11/2026 — chaque variable se voit, et autant que les autres (Claude, décision de Romain)
+
+Contrôle à l'écran après la refonte des variables : à 20 points chacune,
+une seule variable sur cinq se voyait (« Rejets »). Les tests passaient parce
+que leur indice additionnait les canaux à poids égal, alors que la turbidité
+se voit dix fois plus que le reste. Romain a choisi de rendre visibles les
+effets faibles dans le décor plutôt que de tout faire passer par la turbidité.
+
+- **Cause de fond** (`state/impact.js`, nouveau ; `main.js`) : le premier
+  choix REMPLAÇAIT l'état d'arrivée du décor (biodiversité 0,80, turbidité
+  0,13) par un état idéal (1,0 ; 0,08). Choisir la meilleure option
+  éclaircissait la mer, et le vivant — réglé pour paraître plein à 0,8 — ne
+  réagissait à aucune variable seule. `composeImpact` pose désormais
+  l'impact SUR l'état du store : « aucun impact » = le décor d'arrivée,
+  exactement (écart mesuré 1,0, le bruit, contre 5,4 avant).
+- **Décor** (`scene/Underwater.js`, validé — additif, inchangé à l'arrivée) :
+  l'eau verdit sous l'eau avec les algues (au-delà du fond saisonnier,
+  `ALGAE_FLOOR`) ; la vase assombrit le sol et éteint ses caustiques au-delà
+  du dépôt naturel (`mud`, sediment > 0,1).
+- **Vivant** : `KelpForest` réagit dès la première variable (marge ramenée
+  de 15 à 5 %, recul adouci par un exposant 0,6 — sans lui une seule
+  variable rasait 44 % de la forêt). `Jellyfish` inchangé : la composition
+  suffit. Compté dans la page — arrivée 7 méduses / 27 kelps (comme avant) ;
+  une variable au pire 7 à 12 / 21 à 24 ; fermes réelles 13 à 19 / 15 à 18 ;
+  tout au pire 35 / 3.
+- **Doses recalées sur mesure** (`state/scenario.js`) : chaque pire option
+  porte une part de turbidité plus sa signature. Points inchangés.
+- **Mesure** (écart de couleur et de contraste de la vue immergée avec le
+  décor d'arrivée, 1920×1080, bruit ≈ 1) — chaque variable au pire, seule :
+
+  | | Échelle | Rejets | Alimentation | Santé | Énergie |
+  | --- | --- | --- | --- | --- | --- |
+  | Avant | 4,3 | 30,6 | 3,5 | 5,9 | 2,0 |
+  | Après | 16,2 | 18,2 | 16,4 | 14,9 | 19,1 |
+
+  Fermes réelles, dans l'ordre des notes : FREA (40) 27,4 ; L'Esturgeonnière
+  (42) 29,5 ; Atlantic Sapphire (51) 36,2 ; tout au pire (100) 65,3.
+- **Tests** : l'indice `damage` de `tests/scenario.test.js` prend les poids
+  mesurés (turbidité 108, algues 75, vase 3 ; vivant et granulés estimés) ;
+  `tests/impact.test.js` (4 règles : aucun impact = état d'arrivée, chaque
+  pire option se voit seule sans rien améliorer, seuils du décor inactifs
+  à l'arrivée, bornes au pire).
+- Vérifié : 32/32 tests, build OK, planches avant/après, aucune erreur
+  console ; revue `relecteur` : 1 bloquant (une méduse de plus à l'arrivée)
+  et 1 important (test bâti sur des valeurs recopiées, fausses) corrigés. Limites : la mesure capte les changements d'ensemble, mal les
+  détails (bancs, méduses) ; un seul éclairage testé (soir) ; l'« Échelle »
+  reste la moins lisible tant que le décor d'arrivée montre déjà 3 cages.

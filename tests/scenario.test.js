@@ -9,16 +9,25 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { COMPONENTS, PRESETS, CRITERIA, resolveScenario, projectCriteria, impactTier } from '../src/state/scenario.js'
+import { COMPONENTS, PRESETS, CRITERIA, TURBIDITY_BASE, TURBIDITY_CAP, resolveScenario, projectCriteria, impactTier } from '../src/state/scenario.js'
 
 const keys = Object.keys(COMPONENTS)
 const sorted = (key) => Object.entries(COMPONENTS[key].options).sort((a, b) => a[1].impact - b[1].impact)
 const best = Object.fromEntries(keys.map((k) => [k, sorted(k)[0][0]]))
 const worst = Object.fromEntries(keys.map((k) => [k, sorted(k).at(-1)[0]]))
 
-/** Dégradation du milieu vue par le décor : 0 = intact, plus grand = pire. */
+/**
+ * Dégradation du milieu telle qu'elle se VOIT : 0 = intact, plus grand = pire.
+ * Poids mesurés à l'écran le 26/11/2026 (écart de couleur et de contraste de
+ * la vue immergée avec le décor d'arrivée) et ajustés sur les cinq pires
+ * options : la turbidité ~108 par unité, les algues ~75 ; la vase, que le
+ * voile de l'eau cache, ~3. Le recul du vivant (méduses, kelp, bancs) et les
+ * granulés se mesurent mal par la couleur : leurs poids sont une estimation.
+ * Un indice à poids égaux passait les tests alors qu'une seule variable sur
+ * cinq se voyait.
+ */
 const damage = ({ targets: t }) =>
-  (1 - t.health) + (1 - t.biodiversity) + (1 - t.oxygen) + t.turbidity + t.sediment + t.bloom + t.waste
+  108 * t.turbidity + 75 * t.bloom + 3 * t.sediment + 10 * (1 - t.health) + 2 * t.waste
 
 const everyFarm = []
 const build = (i, choices) => {
@@ -86,6 +95,50 @@ test('aggraver un choix ne fait jamais baisser le score ni s\'améliorer le mili
       assert.ok(after.score > before.score, `${JSON.stringify(farm)} → ${key} = ${next}`)
       assert.ok(damage(after) >= damage(before) - 1e-9, `${JSON.stringify(farm)} → ${key} = ${next}`)
     }
+  }
+})
+
+// resolveScenario ignore une option inconnue (0 point, aucun effet) : une
+// faute de frappe dans un préréglage fausserait la note d'une vraie ferme
+// sans aucune erreur visible.
+test('chaque ferme réelle choisit une option existante pour chaque composante', () => {
+  for (const [name, preset] of Object.entries(PRESETS)) {
+    assert.deepEqual(Object.keys(preset.choices).sort(), [...keys].sort(), name)
+    for (const [key, option] of Object.entries(preset.choices)) {
+      assert.ok(COMPONENTS[key].options[option], `${name} / ${key} = ${option}`)
+    }
+  }
+})
+
+// Tolérance ±15 % autour de la moyenne : l'écart mesuré au réglage du
+// 26/11/2026 était d'environ 2 % ; avant, il allait du simple au double (0,70 à 1,59 pour
+// 20 points), ce que l'œil voit. 15 % laisse au groupe de quoi retoucher
+// une option sans rouvrir ce déséquilibre.
+test('à points égaux, dégât visible comparable (±15 %)', () => {
+  const pristine = damage(resolveScenario({}))
+  const perPoint = []
+  for (const key of keys) {
+    for (const [name, option] of Object.entries(COMPONENTS[key].options)) {
+      if (option.impact === 0) continue
+      perPoint.push([`${key} = ${name}`, (damage(resolveScenario({ [key]: name })) - pristine) / option.impact])
+    }
+  }
+  const mean = perPoint.reduce((s, [, v]) => s + v, 0) / perPoint.length
+  for (const [label, value] of perPoint) {
+    assert.ok(Math.abs(value / mean - 1) <= 0.15, `${label} : ${(value / mean).toFixed(2)} × la moyenne`)
+  }
+})
+
+// Un canal qui sature rend deux fermes de scores différents identiques à
+// l'écran (avant le 26/11/2026 : 49 fermes sur 243 avaient la même eau).
+test('même au pire, aucun canal ne bute sur son plafond (turbidité comprise)', () => {
+  const sums = { turb: 0, sed: 0, bloom: 0, stress: 0, waste: 0 }
+  for (const key of keys) {
+    for (const canal of Object.keys(sums)) sums[canal] += COMPONENTS[key].options[worst[key]][canal] ?? 0
+  }
+  assert.ok(TURBIDITY_BASE + sums.turb < TURBIDITY_CAP, `turbidité au pire : ${(TURBIDITY_BASE + sums.turb).toFixed(2)}`)
+  for (const canal of ['sed', 'bloom', 'stress', 'waste']) {
+    assert.ok(sums[canal] < 1, `${canal} au pire : ${sums[canal].toFixed(2)}`)
   }
 })
 

@@ -2,11 +2,11 @@ import { clamp, lerp } from '../core/math.js'
 
 /**
  * Couche SCÉNARIO du configurateur — traduit les 5 choix de l'utilisateur
- * (fichiers « composantes.md » / « wording-parcours.md ») en :
+ * (d'après « composantes.md » / « wording-parcours.md », variables revues le
+ * 26/11/2026 par l'audit `references/2026-11-26-audit-variables.md` du
+ * projet : Méthode + Eaux usées fusionnées, « Santé et parasites » ajoutée) :
  * - un SCORE D'IMPACT /100 (somme des 5 barèmes /20) : 0 = tout va bien,
- *   100 = tout va mal. Sens inversé le 26/11/2026 à la demande de Romain
- *   (l'ancien score de préservation rendait les états partiels incohérents :
- *   une variable seule affichait 4/100, pire que le pire scénario) ;
+ *   100 = tout va mal (inversé le 26/11/2026, voir CHANGELOG) ;
  * - des CIBLES visuelles pour le décor, exprimées dans les grandeurs que
  *   les applyEcosystem de la scène consomment déjà (turbidity, sediment,
  *   bloom, health, biodiversity, oxygen…) + trois commandes propres à la
@@ -31,57 +31,83 @@ import { clamp, lerp } from '../core/math.js'
  *   décor d'arrivée validé garde ses 3 cages (densité 0,55) ;
  * - ajouter ou aggraver un choix ne fait jamais baisser le score ni
  *   s'améliorer le milieu — une ferme réelle (5 choix) pèse donc toujours
- *   au moins autant que n'importe laquelle de ses variables prise seule.
+ *   au moins autant que n'importe laquelle de ses variables prise seule ;
+ * - à points égaux, dégât visible comparable, quelle que soit la variable ;
+ * - même au pire, aucun canal ne bute sur son plafond.
  */
 
+// Turbidité de départ du décor validé, et plafond qui garde les cages
+// lisibles même au pire (le barème doit rester dessous, voir les tests).
+export const TURBIDITY_BASE = 0.08
+export const TURBIDITY_CAP = 0.7
+
 // Canaux d'impact (0..1, sommés puis bornés) :
-// turb = eau qui se trouble · sed = dépôt au fond · bloom = prolifération
-// d'algues · stress = pression générale sur le vivant · waste = particules
-// (nourriture/déchets, module FarmWaste) · density/cages = ferme.
+// turb = eau qui se trouble · sed = vase au fond · bloom = eau et surface
+// qui verdissent · stress = pression générale sur le vivant · waste =
+// granulés et tapis sous les cages (module FarmWaste) · density/cages = ferme.
+// Réglage du 26/11/2026, sur MESURE à l'écran (écart de couleur et de
+// contraste avec le décor d'arrivée) : à dose égale, la turbidité se voit
+// un peu plus que les algues et bien plus que la vase ou le recul du
+// vivant, que le voile de l'eau cache. Chaque pire option porte donc une
+// part de turbidité, plus SA signature (vase, algues, granulés, vivant),
+// pour que 20 points se voient autant quelle que soit la variable (indice
+// `damage` de tests/scenario.test.js) ; une option intermédiaire garde les
+// proportions de la pire.
 export const COMPONENTS = {
   echelle: {
     label: 'Échelle de production',
     options: {
       // density = fraction du cheptel MAXIMUM de l'espèce, réparti sur les
       // cages présentes — contraste net voulu : ~15 poissons (1 cage),
-      // ~30/cage (2 cages), ~50/cage (3 cages)
+      // ~30/cage (2 cages), ~50/cage (3 cages). Plus de biomasse sur un
+      // même site = plus de dépôt sous la ferme.
       locale: { impact: 0, cages: 1, density: 0.1 },
-      nationale: { impact: 10, cages: 2, density: 0.4, sed: 0.15, turb: 0.06, stress: 0.06 },
-      continentale: { impact: 20, cages: 3, density: 1.0, sed: 0.3, turb: 0.12, stress: 0.12 },
+      nationale: { impact: 10, cages: 2, density: 0.4, sed: 0.2, waste: 0.12, stress: 0.04, turb: 0.065 },
+      continentale: { impact: 20, cages: 3, density: 1.0, sed: 0.4, waste: 0.25, stress: 0.08, turb: 0.13 },
     },
   },
-  methode: {
-    label: "Méthode d'élevage",
+  rejets: {
+    // fusion de l'ancienne « Méthode » et des « Eaux usées » : en cage
+    // ouverte, tout ce que rejette la ferme part à la mer, il n'y a pas
+    // d'eaux usées à traiter. Décision Romain maintenue : les cages restent
+    // à l'écran quel que soit le mode, la différence se raconte par l'eau.
+    label: 'Élevage et rejets',
     options: {
-      // décision Romain : la différence se raconte par la turbidité seule,
-      // les cages restent à l'écran quel que soit le mode
-      cagesOuvertes: { impact: 20, turb: 0.3, waste: 0.25, stress: 0.1 },
-      eauRejetee: { impact: 13, turb: 0.2, waste: 0.1, stress: 0.065 },
-      eauBoucle: { impact: 0 },
+      cagesOuvertes: { impact: 20, turb: 0.11, bloom: 0.09, waste: 0.3 },
+      rejetFiltre: { impact: 12, turb: 0.066, bloom: 0.054, waste: 0.18 },
+      circuitFerme: { impact: 0 },
     },
   },
   alimentation: {
+    // recadrée sur l'origine des ingrédients : la farine pèse surtout sur
+    // les poissons sauvages pêchés pour la fabriquer (stress), le soja sur
+    // les rejets de phosphore mal digéré (bloom)
     label: 'Alimentation',
     options: {
-      farine: { impact: 20, waste: 0.5, sed: 0.25, turb: 0.1, stress: 0.1 },
-      soja: { impact: 11, waste: 0.25, sed: 0.12, bloom: 0.25, stress: 0.055 },
+      farine: { impact: 20, stress: 0.22, waste: 0.25, sed: 0.28, turb: 0.13 },
+      soja: { impact: 11, bloom: 0.08, waste: 0.14, stress: 0.08, sed: 0.05, turb: 0.03 },
       insectes: { impact: 0 },
     },
   },
-  eauxUsees: {
-    label: 'Eaux usées',
+  sante: {
+    // nouvelle variable : traitements, parasites et pertes — résidus au
+    // fond (sed), vie sauvage affaiblie autour de la ferme (stress)
+    label: 'Santé et parasites',
     options: {
-      rejetDirect: { impact: 20, turb: 0.3, bloom: 0.3, sed: 0.15, waste: 0.2, stress: 0.2 },
-      traitee: { impact: 8, turb: 0.12, bloom: 0.12, sed: 0.06, waste: 0.08, stress: 0.08 },
-      enfouie: { impact: 0 },
+      chimique: { impact: 20, stress: 0.3, sed: 0.22, turb: 0.13 },
+      soinsMecaniques: { impact: 10, stress: 0.15, sed: 0.11, turb: 0.065 },
+      prevention: { impact: 0 },
     },
   },
   energie: {
+    // recadrée : l'effet réel est climatique (l'océan entier), le décor le
+    // montre de façon symbolique par une vie plus fragile et une eau qui
+    // verdit
     label: 'Énergie',
     options: {
       peuMachines: { impact: 0 },
-      continu: { impact: 10, bloom: 0.2, turb: 0.04, stress: 0.1 },
-      artificiel: { impact: 20, bloom: 0.4, turb: 0.08, stress: 0.2 },
+      continu: { impact: 10, bloom: 0.085, stress: 0.09, turb: 0.025 },
+      artificiel: { impact: 20, bloom: 0.17, stress: 0.18, turb: 0.05 },
     },
   },
 }
@@ -93,21 +119,9 @@ export function impactTier(score) {
   return 'Dégradé'
 }
 
-/** Préréglages des fermes réelles (écran D) — espèce comprise. */
-export const PRESETS = {
-  esturgeonniere: {
-    label: "L'Esturgeonnière", species: 'esturgeon',
-    choices: { echelle: 'locale', methode: 'eauRejetee', alimentation: 'farine', eauxUsees: 'rejetDirect', energie: 'peuMachines' },
-  },
-  frea: {
-    label: 'FREA', species: 'truite',
-    choices: { echelle: 'nationale', methode: 'eauBoucle', alimentation: 'farine', eauxUsees: 'traitee', energie: 'continu' },
-  },
-  atlanticSapphire: {
-    label: 'Atlantic Sapphire', species: 'saumon',
-    choices: { echelle: 'continentale', methode: 'eauBoucle', alimentation: 'farine', eauxUsees: 'enfouie', energie: 'artificiel' },
-  },
-}
+// Fermes réelles (choix sourcés ou hypothèses) : module voisin, ré-exporté
+// ici pour que les imports existants ne changent pas.
+export { PRESETS } from './presets.js'
 
 /**
  * DÉTAIL DE LA NOTATION (Panneau Impact) — projection des 5 composantes
@@ -122,16 +136,16 @@ export const CRITERIA = [
   { key: 'eau', label: "Qualité de l'eau · nutriments", max: 20 },
   { key: 'biodiv', label: 'Biodiversité locale', max: 20 },
   { key: 'sanitaire', label: 'Pression sanitaire & traitements', max: 15 },
-  { key: 'carbone', label: 'Bilan carbone · aliment, transport', max: 12 },
+  { key: 'carbone', label: 'Bilan carbone · aliment, énergie', max: 12 },
   { key: 'bienEtre', label: 'Bien-être animal · densité', max: 8 },
 ]
 //                     fonds  eau  biodiv sanit carbone bien-être   (Σ = 20)
 const CRITERIA_MATRIX = {
-  echelle: [6, 2, 2, 2, 0, 8],
-  methode: [2, 6, 6, 6, 0, 0],
-  alimentation: [6, 2, 2, 0, 10, 0],
-  eauxUsees: [8, 8, 2, 2, 0, 0],
-  energie: [3, 2, 8, 5, 2, 0],
+  echelle: [10, 2, 2, 0, 0, 6],
+  rejets: [9, 9, 2, 0, 0, 0],
+  alimentation: [4, 2, 8, 0, 6, 0],
+  sante: [0, 2, 3, 13, 0, 2],
+  energie: [2, 5, 5, 2, 6, 0],
 }
 
 /**
@@ -181,8 +195,8 @@ export function resolveScenario(choices = {}) {
 
   const stress = clamp(sums.stress, 0, 1)
   const bloom = clamp(sums.bloom, 0, 1)
-  // plafond 0.7 : même au pire, les cages et leur contenu restent lisibles
-  const turbidity = clamp(0.08 + sums.turb, 0, 0.7)
+  // plafond : même au pire, les cages et leur contenu restent lisibles
+  const turbidity = clamp(TURBIDITY_BASE + sums.turb, 0, TURBIDITY_CAP)
   const sediment = clamp(sums.sed, 0, 1)
   return {
     score,

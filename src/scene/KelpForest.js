@@ -216,7 +216,10 @@ export class KelpForest {
 
   applyEcosystem(state) {
     const { biodiversity, clarity } = state
-    this._alive = clamp(clarity * 1.2 - 0.1, 0, 1) * clamp(biodiversity * 1.3, 0, 1)
+    // Lumière ET vivant comptent, mais leur produit brut était trop sévère :
+    // une seule variable (20 points) rasait 44 % de la forêt. L'exposant
+    // ramène ce recul à ~20 %, et laisse le pire scénario presque nu.
+    this._alive = Math.pow(clamp(clarity * 1.2 - 0.1, 0, 1) * clamp(biodiversity * 1.3, 0, 1), 0.6)
     this._vigor = clamp(0.25 + 0.75 * this._alive, 0, 1)
     this._tint()
   }
@@ -224,7 +227,9 @@ export class KelpForest {
   _tint() {
     const stress = 1 - this._vigor
     for (const { mesh, slots, colors } of this._pops) {
-      if (this._placed) mesh.count = Math.round(slots.length * clamp(this._alive * 1.15, 0.12, 1))
+      // Marge de 5 % seulement : la forêt est pleine à l'état d'arrivée du
+      // décor (alive ≈ 0,95) et recule dès la première variable choisie.
+      if (this._placed) mesh.count = Math.round(slots.length * clamp(this._alive * 1.05, 0.12, 1))
       slots.forEach((slot, i) => {
         const shade = slot.far ? 0.85 : 1
         colors[i * 3] = lerp(1.0, 0.62, stress) * shade

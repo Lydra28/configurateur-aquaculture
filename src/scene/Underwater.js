@@ -15,6 +15,10 @@ const FLOOR_SEGMENTS = 180
 // illustrée). -50 m garde le fond lisible sous le voile en eau claire.
 export const FLOOR_Y = -50
 
+// Algues en suspension : sous ce niveau (fond saisonnier), l'eau ne verdit pas.
+const ALGAE_FLOOR = 0.05
+const ALGAE_WATER = new THREE.Color(0.045, 0.17, 0.065)
+
 /** Relief du fond. Une seule source de vérité, CPU et GPU la partagent. */
 export function floorHeight(x, z) {
   return (
@@ -100,13 +104,17 @@ void main() {
   albedo *= 0.75 + 0.5 * mix(0.5, grain, life);
   // Le voile de sédiment recouvre tout, uniformément — c'est sa signature.
   albedo = mix(albedo, vec3(0.28, 0.26, 0.22), uSediment * 0.55);
+  // Au-delà du dépôt naturel, la vase s'épaissit : le fond s'assombrit et
+  // ne renvoie plus le réseau de lumière (sans cela le dépôt ne se voyait pas).
+  float mud = clamp((uSediment - 0.1) * 1.1, 0.0, 0.85);
+  albedo = mix(albedo, vec3(0.15, 0.13, 0.10), mud);
   albedo *= 1.0 + ripple;
 
   float diffuse = max(dot(N, normalize(uSunDirection)), 0.0) * 0.55 + 0.45;
   // Caustiques : réseau partagé avec les objets du fond (CausticLight), les
   // pentes tournées vers la surface en reçoivent le plus.
   float caustic = caustics(vWorldPos.xz, uCausticTime, uCausticScale)
-    * uCausticStrength * clamp(N.y, 0.0, 1.0);
+    * uCausticStrength * clamp(N.y, 0.0, 1.0) * (1.0 - mud);
 
   // L'ambiante porte la visibilité (lumière déjà diffusée par le milieu), le
   // soleil ne fait plus que sculpter le relief.
@@ -388,7 +396,7 @@ export class Underwater {
   }
 
   applyEcosystem(state) {
-    const { biodiversity, sediment, turbidity, health } = state
+    const { biodiversity, sediment, turbidity, health, bloom = 0 } = state
     this._turbidity = turbidity
 
     // Couleur de l'eau : le brouillard EST la couleur de l'eau. Une eau chargée
@@ -398,7 +406,11 @@ export class Underwater {
       lerp(0.165, 0.150, turbidity),
       lerp(0.225, 0.085, turbidity),
     )
-    this.floorUniforms.uFogDensity.value = lerp(0.009, 0.033, turbidity)
+    // Prolifération d'algues : l'eau verdit et se referme un peu. Sous le fond
+    // saisonnier (ALGAE_FLOOR), rien ne change.
+    const algae = clamp((bloom - ALGAE_FLOOR) / (1 - ALGAE_FLOOR), 0, 1)
+    this.waterColor.lerp(ALGAE_WATER, Math.min(1, algae * 1.6))
+    this.floorUniforms.uFogDensity.value = lerp(0.009, 0.033, turbidity) + algae * 0.008
     this.floorUniforms.uBiodiversity.value = biodiversity
     this.floorUniforms.uSediment.value = sediment
     // Moins de lumière traverse une eau chargée : les caustiques s'éteignent.

@@ -11,10 +11,13 @@ import { clamp, lerp } from '../core/math.js'
  *
  * Récit (applyEcosystem) : c'est la seule vie qui AUGMENTE quand le milieu
  * se dégrade. Quelques individus en eau saine ; quand la santé chute (excès
- * de nutriments, moins d'oxygène, moins de poissons), elles prolifèrent —
- * le visiteur voit le vivant changer de nature, pas seulement s'éteindre.
- * (Lien pullulations / eutrophisation : généralement admis, à sourcer pour
- * le dossier du groupe.)
+ * de nutriments, moins d'oxygène, moins de poissons), elles peuvent
+ * proliférer localement — le visiteur voit le vivant changer de nature, pas
+ * seulement s'éteindre.
+ * Lien plausible mais DÉBATTU : eutrophisation, pêche et structures
+ * aquacoles peuvent favoriser les méduses (Purcell et al. 2007), mais aucune
+ * hausse mondiale n'est démontrée (Condon et al. 2013). Sources et nuances :
+ * `references/2026-11-26-audit-variables.md` du projet, § 3.4.
  */
 
 const MAX = 40

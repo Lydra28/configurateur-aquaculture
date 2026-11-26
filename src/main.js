@@ -26,6 +26,7 @@ import { GradingPass } from './render/GradingPass.js'
 import { AdaptiveResolution } from './render/AdaptiveResolution.js'
 import { createEcosystemStore } from './state/ecosystem.js'
 import { ScenarioDirector, resolveScenario, PRESETS } from './state/scenario.js'
+import { composeImpact } from './state/impact.js'
 import { createDebugPanel } from './ui/DebugPanel.js'
 import { mountConfigurator } from './ui/configurator.js'
 import { DEG, clamp, lerp } from './core/math.js'
@@ -200,7 +201,7 @@ function applyImpact(state) {
 const scenarioDirector = new ScenarioDirector()
 function mergeScenario(scenarioState) {
   const base = store.derived
-  const merged = { ...base, ...scenarioState }
+  const merged = composeImpact(base, scenarioState)
   merged.clarity = clamp(1 - merged.turbidity, 0.05, 1)
   merged.surfaceScum = clamp(0.75 * merged.bloom + 0.3 * base.chemical - 0.2 * base.storminess, 0, 1)
   merged.algaeHue = clamp(merged.bloom * (1 - 0.4 * base.chemical), 0, 1)
