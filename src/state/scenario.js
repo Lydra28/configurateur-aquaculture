@@ -1,22 +1,22 @@
 import { clamp, lerp } from '../core/math.js'
+import { interplay } from './interplay.js'
 
 /**
  * Couche SCÉNARIO du configurateur — traduit les 5 choix de l'utilisateur
  * (d'après « composantes.md » / « wording-parcours.md », variables revues le
  * 26/11/2026 par l'audit `references/2026-11-26-audit-variables.md` du
  * projet : Méthode + Eaux usées fusionnées, « Santé et parasites » ajoutée) :
- * - un SCORE D'IMPACT /100 (somme des 5 barèmes /20) : 0 = tout va bien,
- *   100 = tout va mal (inversé le 26/11/2026, voir CHANGELOG) ;
+ * - un SCORE D'IMPACT /100 : 0 = mer sans ferme, 100 = tout va mal. Chaque
+ *   variable vaut jusqu'à 20 points, PONDÉRÉS par les autres choix
+ *   (interplay.js : l'échelle amplifie, l'élevage à terre filtre) ;
  * - des CIBLES visuelles pour le décor, exprimées dans les grandeurs que
  *   les applyEcosystem de la scène consomment déjà (turbidity, sediment,
  *   bloom, health, biodiversity, oxygen…) + trois commandes propres à la
  *   ferme (nombre de cages, densité par cage, déchets/particules).
  *
- * AUCUN module du décor n'est modifié : le scénario fabrique un état au
- * même contrat que store.derived, main.js le fusionne et le distribue par
- * le chemin existant. Transition douce (~3 s) : chaque canal glisse vers
- * sa cible par lissage exponentiel — le décor « répond » au choix au lieu
- * de sauter.
+ * Le scénario fabrique un état au même contrat que store.derived, main.js
+ * le compose et le distribue par le chemin existant. Transition douce
+ * (~3 s) : chaque canal glisse vers sa cible, le décor « répond » au choix.
  *
  * CALIBRAGE : tout le barème est dans COMPONENTS ci-dessous (points
  * d'impact et canaux visuels 0..1 par option, sommés puis projetés) — c'est
@@ -28,9 +28,9 @@ import { clamp, lerp } from '../core/math.js'
  *   un impact, 0/100 est réservé à la mer sans ferme (aucun choix) ;
  * - une composante non choisie ne compte pas (0 point, aucun effet). Seule
  *   exception : sans choix d'échelle, le décor garde ses 3 cages d'arrivée ;
- * - ajouter ou aggraver un choix ne fait jamais baisser le score ni
- *   s'améliorer le milieu — une ferme réelle (5 choix) pèse donc toujours
- *   au moins autant que n'importe laquelle de ses variables prise seule ;
+ * - aggraver un choix ne fait jamais baisser le score ni s'améliorer le
+ *   milieu ; choisir une ferme plus petite ou mieux confinée ALLÈGE le
+ *   poids des autres variables, en points comme à l'écran ;
  * - à points égaux, dégât visible comparable, quelle que soit la variable ;
  * - même au pire, aucun canal ne bute sur son plafond.
  */
@@ -114,8 +114,7 @@ export function impactTier(score) {
   return 'Dégradé'
 }
 
-// Fermes réelles (choix sourcés ou hypothèses) : module voisin, ré-exporté
-// ici pour que les imports existants ne changent pas.
+// Fermes réelles (choix sourcés ou hypothèses) : module voisin, ré-exporté ici.
 export { PRESETS } from './presets.js'
 
 /**
@@ -151,16 +150,15 @@ const CRITERIA_MATRIX = {
  */
 export function projectCriteria(choices = {}) {
   const values = CRITERIA.map(() => 0)
-  let score = 0
+  const weights = interplay(choices)
   for (const [key, component] of Object.entries(COMPONENTS)) {
     const option = component.options[choices[key]]
     if (!option) continue
-    score += option.impact
-    const weight = option.impact / 20
+    const weight = (option.impact * weights[key]) / 20
     CRITERIA_MATRIX[key].forEach((points, i) => { values[i] += weight * points })
   }
   const floors = values.map(Math.floor)
-  let remainder = score - floors.reduce((a, b) => a + b, 0)
+  let remainder = Math.round(values.reduce((a, b) => a + b, 0)) - floors.reduce((a, b) => a + b, 0)
   const order = values.map((v, i) => [v - floors[i], i]).sort((a, b) => b[0] - a[0])
   for (let k = 0; k < order.length && remainder > 0; k++, remainder--) floors[order[k][1]]++
   return CRITERIA.map((criterion, i) => ({ ...criterion, value: floors[i] }))
@@ -168,8 +166,8 @@ export function projectCriteria(choices = {}) {
 
 /**
  * Résout un jeu de choix (partiel accepté : une composante absente ne
- * compte pas, 0 point et aucun effet) → { score, scoreMax, targets }.
- * `score` est l'impact /100 ; `scoreMax` vaut toujours 100.
+ * compte pas et ne module rien) → { score, scoreMax, targets }.
+ * `score` est l'impact /100, arrondi ; `scoreMax` vaut toujours 100.
  */
 export function resolveScenario(choices = {}) {
   const sums = { turb: 0, sed: 0, bloom: 0, stress: 0, waste: 0 }
@@ -177,13 +175,15 @@ export function resolveScenario(choices = {}) {
   const scoreMax = 100
   let cages = 3      // défaut décor validé : les 3 cages
   let density = 0.55 // défaut décor validé : densité saine
+  const weights = interplay(choices)
   for (const [key, component] of Object.entries(COMPONENTS)) {
     const choice = choices[key]
     if (!choice) continue
     const option = component.options[choice]
     if (!option) continue
-    score += option.impact
-    for (const canal of Object.keys(sums)) sums[canal] += option[canal] ?? 0
+    // Points ET effets visibles portent le même poids : le décor suit le score.
+    score += option.impact * weights[key]
+    for (const canal of Object.keys(sums)) sums[canal] += (option[canal] ?? 0) * weights[key]
     if (option.cages !== undefined) cages = option.cages
     if (option.density !== undefined) density = option.density
   }
@@ -194,7 +194,7 @@ export function resolveScenario(choices = {}) {
   const turbidity = clamp(TURBIDITY_BASE + sums.turb, 0, TURBIDITY_CAP)
   const sediment = clamp(sums.sed, 0, 1)
   return {
-    score,
+    score: Math.round(score),
     scoreMax,
     targets: {
       // grandeurs au contrat de store.derived (consommées par les modules)

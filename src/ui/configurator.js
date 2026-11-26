@@ -99,9 +99,9 @@ const PROFILE_CARDS = [
 
 const tierLabel = impactTier
 
+/** Note d'une ferme réelle : ses cinq choix résolus ENSEMBLE (ils s'influencent). */
 function presetScore(key) {
-  return Object.entries(PRESETS[key].choices).reduce((sum, [componentKey, optionId]) =>
-    sum + (window.NEMO.scenario.resolve({ [componentKey]: optionId }).score), 0)
+  return window.NEMO.scenario.resolve(PRESETS[key].choices).score
 }
 
 export function mountConfigurator() {

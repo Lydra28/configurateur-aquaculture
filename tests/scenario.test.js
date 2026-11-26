@@ -10,6 +10,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { COMPONENTS, PRESETS, CRITERIA, TURBIDITY_BASE, TURBIDITY_CAP, resolveScenario, projectCriteria, impactTier } from '../src/state/scenario.js'
+import { SCALE, LEAK, interplay } from '../src/state/interplay.js'
 
 const keys = Object.keys(COMPONENTS)
 const sorted = (key) => Object.entries(COMPONENTS[key].options).sort((a, b) => a[1].impact - b[1].impact)
@@ -83,7 +84,7 @@ test('niveaux : 0-30 Préservé, 31-60 Fragile, 61+ Dégradé', () => {
 
 // La taille de la ferme (cages, densité) est hors de `damage` : sans choix
 // d'échelle, le décor d'arrivée garde ses 3 cages — exception assumée.
-test('une composante non choisie ne compte pas, et tout choix ajouté pèse', () => {
+test('une composante non choisie ne compte pas et ne module rien', () => {
   for (const key of keys) {
     for (const [name, option] of Object.entries(COMPONENTS[key].options)) {
       const alone = resolveScenario({ [key]: name })
@@ -94,12 +95,40 @@ test('une composante non choisie ne compte pas, et tout choix ajouté pèse', ()
       assert.ok(Math.abs(alone.targets.sediment - own('sed')) < 1e-9, `${key} = ${name} : vase`)
       assert.ok(Math.abs(alone.targets.bloom - own('bloom')) < 1e-9, `${key} = ${name} : algues`)
       assert.ok(Math.abs(alone.targets.waste - own('waste')) < 1e-9, `${key} = ${name} : granulés`)
-      for (const other of keys.filter((k) => k !== key)) {
-        const more = resolveScenario({ [key]: name, [other]: best[other] })
-        assert.ok(more.score > alone.score, `${key} = ${name} + ${other}`)
-        assert.ok(damage(more) > damage(alone), `${key} = ${name} + ${other}`)
-      }
     }
+  }
+})
+
+test('les variables s\u2019influencent : petite échelle et élevage à terre allègent les autres', () => {
+  // Facteurs : jamais d'aggravation (≤ 1), le pire choix ne module rien (= 1).
+  for (const table of [SCALE, LEAK]) for (const v of Object.values(table)) assert.ok(v > 0 && v <= 1)
+  assert.equal(SCALE[worst.echelle], 1)
+  assert.equal(LEAK[worst.rejets], 1)
+  assert.deepEqual(interplay({}), { echelle: 1, rejets: 1, alimentation: 1, sante: 1, energie: 1 })
+  // Qui module qui, pour toutes les combinaisons d'échelle et d'élevage :
+  // l'énergie pèse sur le climat, l'élevage à terre ne la retient pas.
+  for (const [e, s] of Object.entries(SCALE)) {
+    for (const [r, l] of Object.entries(LEAK)) {
+      assert.deepEqual(interplay({ echelle: e, rejets: r }),
+        { echelle: l, rejets: s, alimentation: s * l, sante: s * l, energie: s }, `${e} / ${r}`)
+    }
+  }
+  assert.equal(interplay({ echelle: 'constructor', rejets: 'inconnu' }).alimentation, 1)
+
+  for (const key of ['alimentation', 'sante']) {
+    const alone = resolveScenario({ [key]: worst[key] })
+    for (const [mitigator, table] of [['echelle', SCALE], ['rejets', LEAK]]) {
+      const mitigated = resolveScenario({ [key]: worst[key], [mitigator]: best[mitigator] })
+      // Le bon choix ajoute ses 2 points mais retire bien plus aux 20 de l'autre.
+      assert.ok(mitigated.score < alone.score, `${key} + ${mitigator} : ${alone.score} → ${mitigated.score}`)
+      assert.ok(damage(mitigated) < damage(alone), `${key} + ${mitigator} : le décor s'allège aussi`)
+      assert.equal(mitigated.score, Math.round(20 * table[best[mitigator]] + 2), `${key} + ${mitigator}`)
+    }
+  }
+  // Grande ferme en mer ouverte : rien n'est allégé, le score est la somme simple.
+  for (const farm of everyFarm.filter((f) => f.echelle === worst.echelle && f.rejets === worst.rejets)) {
+    const sum = keys.reduce((s, k) => s + COMPONENTS[k].options[farm[k]].impact, 0)
+    assert.equal(resolveScenario(farm).score, sum)
   }
 })
 
@@ -161,14 +190,26 @@ test('même au pire, aucun canal ne bute sur son plafond (turbidité comprise)',
   }
 })
 
-test('une ferme réelle pèse au moins autant que chacune de ses variables seule', () => {
-  for (const [name, preset] of Object.entries(PRESETS)) {
-    const farm = resolveScenario(preset.choices)
-    for (const [key, option] of Object.entries(preset.choices)) {
-      const alone = resolveScenario({ [key]: option })
-      assert.ok(farm.score >= alone.score, `${name} / ${key}`)
-      assert.ok(damage(farm) >= damage(alone) - 1e-9, `${name} / ${key}`)
+// Seules l'échelle et l'élevage allègent. Aliment, soins et énergie ne
+// compensent rien : les ajouter ne peut que dégrader le milieu (le score
+// arrondi peut rester égal quand la ferme est déjà très allégée).
+test('ajouter un aliment, des soins ou une source d\u2019énergie pèse toujours', () => {
+  for (const farm of everyFarm) {
+    const withAll = resolveScenario(farm)
+    for (const key of ['alimentation', 'sante', 'energie']) {
+      const { [key]: removed, ...rest } = farm
+      const without = resolveScenario(rest)
+      assert.ok(withAll.score >= without.score, `${JSON.stringify(farm)} sans ${key}`)
+      assert.ok(damage(withAll) > damage(without), `${JSON.stringify(farm)} sans ${key}`)
     }
+  }
+})
+
+test('une ferme ne dépasse jamais la somme simple de ses points, et n\u2019est jamais à zéro', () => {
+  for (const farm of everyFarm) {
+    const sum = keys.reduce((s, k) => s + COMPONENTS[k].options[farm[k]].impact, 0)
+    const { score } = resolveScenario(farm)
+    assert.ok(score <= sum && score >= 1, `${JSON.stringify(farm)} : ${score} / somme ${sum}`)
   }
 })
 

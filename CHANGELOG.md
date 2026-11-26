@@ -928,3 +928,44 @@ Constaté sur staging : les cinq meilleures options donnaient 0/100.
   options : 2, 4, 6, 8, 10 ; visibilité des pires options inchangée, 14,9 à
   19,1). Non vérifié : la valeur « 2 points » est un choix de Claude, à
   valider.
+
+## 26/11/2026 — les variables s'influencent (Claude, demande de Romain)
+
+Romain : « quand je sélectionne les meilleures options le score reste à 20 ;
+il faut que les variables influent les unes sur les autres ». Reproduit sur
+staging : une pire option (20), puis les quatre meilleures ailleurs → 28. Le
+score n'était qu'une somme, un bon choix ne compensait jamais un mauvais.
+
+- **`state/interplay.js`** (nouveau) : deux variables règlent ce que les
+  autres pèsent vraiment. L'ÉCHELLE amplifie (×0,6 locale, ×0,8 nationale,
+  ×1 continentale) rejets, alimentation, santé et énergie ; l'ÉLEVAGE filtre
+  (×0,4 circuit fermé, ×0,7 rejet filtré, ×1 cages ouvertes) échelle,
+  alimentation et santé — pas l'énergie, dont l'effet est climatique. Une
+  variable non choisie ne module rien. Valeurs choisies par Claude, à valider.
+- **`state/scenario.js`** : points ET effets visibles portent le même poids
+  (`resolveScenario`, `projectCriteria`) ; score arrondi. Grande ferme en
+  cages ouvertes : somme simple, inchangée (pire = 100).
+- **`ui/configurator.js`** : la note d'une ferme réelle résout ses cinq choix
+  ensemble.
+- Effet : « farine » seule 20 → + circuit fermé 10 → + échelle locale 7. La
+  pire ferme 100 → en circuit fermé 46 → petite et en circuit fermé 24. La
+  meilleure ferme possible : 4. Décor, compté dans la page : kelps 3 → 15 →
+  21 → 27, méduses 34 → 18 → 12 → 7.
+- **Fermes réelles** : L'Esturgeonnière 24, FREA 21, Atlantic Sapphire 28
+  (avant 46 / 44 / 53) — même classement, mais toutes passent de « Fragile »
+  à « Préservé » : ce sont trois élevages à terre, que le modèle allège. Les
+  seuils des niveaux (30 / 60) n'ont pas été retouchés : à décider.
+- **`tests/scenario.test.js`** : règle « tout choix ajouté pèse » retirée
+  (c'est désormais faux par construction) ; ajoutées : les variables
+  s'influencent (facteurs ≤ 1, le pire ne module rien, l'énergie n'est pas
+  filtrée, un bon choix fait baisser score et dégât, somme simple en cages
+  ouvertes à grande échelle) et « une ferme ne dépasse jamais la somme de
+  ses points, et n'est jamais à zéro ». La règle « une ferme réelle pèse au
+  moins autant que chacune de ses variables seule » ne tient plus : un
+  élevage à terre pèse moins que sa pire variable prise isolément.
+- Vérifié : 35/35 tests (un premier passage a échoué sur le fichier
+  `ecosystem.test.js`, non modifié et non reproduit sur trois passages
+  suivants), build OK, vraie page (séquences ci-dessus, planche), aucune
+  erreur console. Non vérifié : les facteurs et les seuils de niveau avec le
+  groupe ; textes d'aide non retouchés (ils ne disent pas encore que les
+  choix se compensent).
