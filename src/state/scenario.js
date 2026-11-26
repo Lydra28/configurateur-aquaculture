@@ -23,12 +23,11 @@ import { clamp, lerp } from '../core/math.js'
  * LE fichier que le groupe retouche pour ajuster l'impact de chaque choix.
  *
  * RÈGLES DE COHÉRENCE (verrouillées par tests/scenario.test.js) :
- * - dans chaque composante : la meilleure option vaut 0 point et n'a AUCUN
- *   effet visuel, la pire vaut 20 points ;
- * - une composante non choisie vaut la meilleure option, pour le score
- *   comme pour le décor : le score décrit toujours une ferme complète.
- *   Seule exception : la TAILLE de la ferme — sans choix d'échelle, le
- *   décor d'arrivée validé garde ses 3 cages (densité 0,55) ;
+ * - aucune option n'est gratuite : même la meilleure pèse un peu (2 points,
+ *   un dixième de l'effet de la pire, qui en vaut 20) — une ferme a toujours
+ *   un impact, 0/100 est réservé à la mer sans ferme (aucun choix) ;
+ * - une composante non choisie ne compte pas (0 point, aucun effet). Seule
+ *   exception : sans choix d'échelle, le décor garde ses 3 cages d'arrivée ;
  * - ajouter ou aggraver un choix ne fait jamais baisser le score ni
  *   s'améliorer le milieu — une ferme réelle (5 choix) pèse donc toujours
  *   au moins autant que n'importe laquelle de ses variables prise seule ;
@@ -45,14 +44,10 @@ export const TURBIDITY_CAP = 0.7
 // turb = eau qui se trouble · sed = vase au fond · bloom = eau et surface
 // qui verdissent · stress = pression générale sur le vivant · waste =
 // granulés et tapis sous les cages (module FarmWaste) · density/cages = ferme.
-// Réglage du 26/11/2026, sur MESURE à l'écran (écart de couleur et de
-// contraste avec le décor d'arrivée) : à dose égale, la turbidité se voit
-// un peu plus que les algues et bien plus que la vase ou le recul du
-// vivant, que le voile de l'eau cache. Chaque pire option porte donc une
-// part de turbidité, plus SA signature (vase, algues, granulés, vivant),
-// pour que 20 points se voient autant quelle que soit la variable (indice
-// `damage` de tests/scenario.test.js) ; une option intermédiaire garde les
-// proportions de la pire.
+// Réglage du 26/11/2026, sur MESURE à l'écran : la turbidité se voit plus
+// que les algues, et bien plus que la vase ou le recul du vivant. Chaque
+// pire option porte donc une part de turbidité plus SA signature ; les
+// autres options gardent ses proportions (indice `damage` des tests).
 export const COMPONENTS = {
   echelle: {
     label: 'Échelle de production',
@@ -61,7 +56,7 @@ export const COMPONENTS = {
       // cages présentes — contraste net voulu : ~15 poissons (1 cage),
       // ~30/cage (2 cages), ~50/cage (3 cages). Plus de biomasse sur un
       // même site = plus de dépôt sous la ferme.
-      locale: { impact: 0, cages: 1, density: 0.1 },
+      locale: { impact: 2, cages: 1, density: 0.1, sed: 0.04, waste: 0.025, stress: 0.008, turb: 0.013 },
       nationale: { impact: 10, cages: 2, density: 0.4, sed: 0.2, waste: 0.12, stress: 0.04, turb: 0.065 },
       continentale: { impact: 20, cages: 3, density: 1.0, sed: 0.4, waste: 0.25, stress: 0.08, turb: 0.13 },
     },
@@ -75,7 +70,7 @@ export const COMPONENTS = {
     options: {
       cagesOuvertes: { impact: 20, turb: 0.11, bloom: 0.09, waste: 0.3 },
       rejetFiltre: { impact: 12, turb: 0.066, bloom: 0.054, waste: 0.18 },
-      circuitFerme: { impact: 0 },
+      circuitFerme: { impact: 2, turb: 0.011, bloom: 0.009, waste: 0.03 },
     },
   },
   alimentation: {
@@ -86,7 +81,7 @@ export const COMPONENTS = {
     options: {
       farine: { impact: 20, stress: 0.22, waste: 0.25, sed: 0.28, turb: 0.13 },
       soja: { impact: 11, bloom: 0.08, waste: 0.14, stress: 0.08, sed: 0.05, turb: 0.03 },
-      insectes: { impact: 0 },
+      insectes: { impact: 2, stress: 0.022, waste: 0.025, sed: 0.028, turb: 0.013 },
     },
   },
   sante: {
@@ -96,7 +91,7 @@ export const COMPONENTS = {
     options: {
       chimique: { impact: 20, stress: 0.3, sed: 0.22, turb: 0.13 },
       soinsMecaniques: { impact: 10, stress: 0.15, sed: 0.11, turb: 0.065 },
-      prevention: { impact: 0 },
+      prevention: { impact: 2, stress: 0.03, sed: 0.022, turb: 0.013 },
     },
   },
   energie: {
@@ -105,7 +100,7 @@ export const COMPONENTS = {
     // verdit
     label: 'Énergie',
     options: {
-      peuMachines: { impact: 0 },
+      peuMachines: { impact: 2, bloom: 0.017, stress: 0.018, turb: 0.005 },
       continu: { impact: 10, bloom: 0.085, stress: 0.09, turb: 0.025 },
       artificiel: { impact: 20, bloom: 0.17, stress: 0.18, turb: 0.05 },
     },
@@ -172,8 +167,8 @@ export function projectCriteria(choices = {}) {
 }
 
 /**
- * Résout un jeu de choix (partiel accepté : une composante absente vaut sa
- * meilleure option, 0 point et aucun effet) → { score, scoreMax, targets }.
+ * Résout un jeu de choix (partiel accepté : une composante absente ne
+ * compte pas, 0 point et aucun effet) → { score, scoreMax, targets }.
  * `score` est l'impact /100 ; `scoreMax` vaut toujours 100.
  */
 export function resolveScenario(choices = {}) {

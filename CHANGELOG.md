@@ -906,3 +906,25 @@ effets faibles dans le décor plutôt que de tout faire passer par la turbidité
   et 1 important (test bâti sur des valeurs recopiées, fausses) corrigés. Limites : la mesure capte les changements d'ensemble, mal les
   détails (bancs, méduses) ; un seul éclairage testé (soir) ; l'« Échelle »
   reste la moins lisible tant que le décor d'arrivée montre déjà 3 cages.
+
+## 26/11/2026 — aucune option ne vaut zéro (Claude, retour de Romain)
+
+Romain : « les meilleures options font monter le score de 0, ce qui n'est
+pas logique ». Lecture retenue (hypothèse annoncée à Romain) : même au
+mieux, une ferme a un impact ; 0/100 ne doit décrire que la mer sans ferme.
+Constaté sur staging : les cinq meilleures options donnaient 0/100.
+
+- **`state/scenario.js`** : chaque meilleure option vaut 2 points et porte un
+  dixième de l'effet de la pire option de sa variable. La meilleure ferme
+  possible fait 10/100 (« Préservé »), la pire toujours 100. Une composante
+  non choisie ne compte pas (0 point, aucun effet).
+- Fermes réelles : L'Esturgeonnière 46, FREA 44, Atlantic Sapphire 53
+  (avant 42 / 40 / 51) — même classement, toutes « Fragile ».
+- **`tests/scenario.test.js`** : quatre règles réécrites (meilleure option
+  entre 1 et 4 points ; aucun choix = 0 et meilleure ferme > 0 mais
+  « Préservé » ; aucune option sans effet ; non choisi = ne compte pas, et
+  tout choix ajouté pèse).
+- Vérifié : 33/33 tests, build OK, vraie page (clic sur les cinq meilleures
+  options : 2, 4, 6, 8, 10 ; visibilité des pires options inchangée, 14,9 à
+  19,1). Non vérifié : la valeur « 2 points » est un choix de Claude, à
+  valider.

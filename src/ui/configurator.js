@@ -316,8 +316,8 @@ export function mountConfigurator() {
     // score en odomètre (— tant qu'aucun choix)
     odometer(scoreBox, done ? score : null)
     odometer(miniBox, done ? score : null)
-    // Le score décrit une ferme complète dès le premier choix (le reste vaut
-    // « au mieux ») : le niveau s'affiche donc tout de suite.
+    // Le score ne compte que les choix faits : le niveau s'affiche dès le
+    // premier.
     impact.querySelector('[data-tier]').textContent = done ? tierLabel(score) : ''
 
     // jauge : dégradé de fond, palier courant contouré et boosté

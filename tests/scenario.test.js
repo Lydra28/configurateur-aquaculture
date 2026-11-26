@@ -36,32 +36,42 @@ const build = (i, choices) => {
 }
 build(0, {})
 
-test('chaque composante va de 0 (au mieux) à 20 (au pire)', () => {
+test('chaque composante va de peu (au mieux) à 20 (au pire) : aucune option gratuite', () => {
   for (const key of keys) {
-    assert.equal(sorted(key)[0][1].impact, 0, `${key} : la meilleure option vaut 0`)
+    const least = sorted(key)[0][1].impact
+    assert.ok(least >= 1 && least <= 4, `${key} : la meilleure option vaut ${least}`)
     assert.equal(sorted(key).at(-1)[1].impact, 20, `${key} : la pire option vaut 20`)
   }
 })
 
-test('tout au mieux = 0/100 et milieu intact ; tout au pire = 100/100', () => {
+test('la meilleure option vaut 2 points et un dixième de l\u2019effet de la pire', () => {
+  for (const key of keys) {
+    const least = sorted(key)[0][1]
+    const most = sorted(key).at(-1)[1]
+    assert.equal(least.impact, 2, key)
+    for (const canal of ['turb', 'sed', 'bloom', 'stress', 'waste']) {
+      assert.ok(Math.abs((least[canal] ?? 0) - (most[canal] ?? 0) / 10) < 1e-9, `${key} : ${canal}`)
+    }
+  }
+})
+
+test('aucun choix = 0/100 ; la meilleure ferme pèse peu, mais pas rien ; tout au pire = 100/100', () => {
   const pristine = resolveScenario({})
   const allBest = resolveScenario(best)
-  assert.equal(allBest.score, 0)
-  // Hors taille de la ferme (cages, densité), la meilleure ferme ne change rien au décor.
-  for (const canal of ['turbidity', 'sediment', 'bloom', 'health', 'biodiversity', 'oxygen', 'waste']) {
-    assert.equal(allBest.targets[canal], pristine.targets[canal], canal)
-  }
+  assert.equal(pristine.score, 0)
+  assert.ok(allBest.score > 0 && allBest.score <= 15, `meilleure ferme : ${allBest.score}/100`)
+  assert.equal(impactTier(allBest.score), 'Préservé')
+  assert.ok(damage(allBest) > damage(pristine), 'la meilleure ferme laisse une trace')
   assert.equal(resolveScenario(worst).score, 100)
   assert.equal(resolveScenario(worst).scoreMax, 100)
 })
 
-test('aucune option à 0 point n’a d’effet visuel', () => {
+test('aucune option sans effet : chacune, seule, dégrade un peu le milieu', () => {
+  const pristine = damage(resolveScenario({}))
   for (const key of keys) {
     for (const [name, option] of Object.entries(COMPONENTS[key].options)) {
-      if (option.impact !== 0) continue
-      for (const canal of ['turb', 'sed', 'bloom', 'stress', 'waste']) {
-        assert.equal(option[canal] ?? 0, 0, `${key} = ${name} : ${canal}`)
-      }
+      assert.ok(option.impact > 0, `${key} = ${name} : ${option.impact} point`)
+      assert.ok(damage(resolveScenario({ [key]: name })) > pristine, `${key} = ${name}`)
     }
   }
 })
@@ -73,13 +83,22 @@ test('niveaux : 0-30 Préservé, 31-60 Fragile, 61+ Dégradé', () => {
 
 // La taille de la ferme (cages, densité) est hors de `damage` : sans choix
 // d'échelle, le décor d'arrivée garde ses 3 cages — exception assumée.
-test('une composante non choisie vaut sa meilleure option', () => {
+test('une composante non choisie ne compte pas, et tout choix ajouté pèse', () => {
   for (const key of keys) {
-    for (const option of Object.keys(COMPONENTS[key].options)) {
-      const alone = resolveScenario({ [key]: option })
-      const completed = resolveScenario({ ...best, [key]: option })
-      assert.equal(alone.score, completed.score, `${key} = ${option}`)
-      assert.ok(Math.abs(damage(alone) - damage(completed)) < 1e-9, `${key} = ${option}`)
+    for (const [name, option] of Object.entries(COMPONENTS[key].options)) {
+      const alone = resolveScenario({ [key]: name })
+      assert.equal(alone.score, option.impact, `${key} = ${name}`)
+      // Les variables absentes n'ajoutent rien au décor : seule l'option choisie agit.
+      const own = (canal) => option[canal] ?? 0
+      assert.ok(Math.abs(alone.targets.turbidity - TURBIDITY_BASE - own('turb')) < 1e-9, `${key} = ${name} : turbidité`)
+      assert.ok(Math.abs(alone.targets.sediment - own('sed')) < 1e-9, `${key} = ${name} : vase`)
+      assert.ok(Math.abs(alone.targets.bloom - own('bloom')) < 1e-9, `${key} = ${name} : algues`)
+      assert.ok(Math.abs(alone.targets.waste - own('waste')) < 1e-9, `${key} = ${name} : granulés`)
+      for (const other of keys.filter((k) => k !== key)) {
+        const more = resolveScenario({ [key]: name, [other]: best[other] })
+        assert.ok(more.score > alone.score, `${key} = ${name} + ${other}`)
+        assert.ok(damage(more) > damage(alone), `${key} = ${name} + ${other}`)
+      }
     }
   }
 })
